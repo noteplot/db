@@ -2,7 +2,7 @@ CREATE TABLE dbo.Logins
 ( 
 	LoginID             bigint IDENTITY ( 1,1 ) ,
 	LoginRoleID         tinyint  NOT NULL ,
-	LoginName			nvarchar(32)  NOT NULL ,
+	LoginName			nvarchar(64)  NOT NULL ,
 	[Password]			nvarchar(128)  NOT NULL ,
 	Email				nvarchar(64)  NOT NULL ,
 	IsConfirmed         bit  NOT NULL ,
@@ -16,7 +16,7 @@ GO
 
 ALTER TABLE [dbo].[Logins] ADD  CONSTRAINT [DF_Logins_IsConfirmed]  DEFAULT ((0)) FOR [IsConfirmed]
 GO
-ALTER TABLE [dbo].[Logins] ADD  CONSTRAINT [DF_Logins_ShowNick]  DEFAULT ((0)) FOR [ShowName]
+ALTER TABLE [dbo].[Logins] ADD  CONSTRAINT [DF_Logins_ShowName]  DEFAULT ((0)) FOR [ShowName]
 GO
 
 
