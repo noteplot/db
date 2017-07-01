@@ -29,7 +29,7 @@ INSERT INTO dbo.Logins(
 	IsConfirmed,
 	ShowName
 )
-VALUES(1,'andranick','1','@andranick@bk.ru', 'Андрей Багиров', 1,0);
+VALUES(1,'noteplot','1','noteplot@bk.ru', 'Вася Иванов', 1,0);
 GO
 
 	
