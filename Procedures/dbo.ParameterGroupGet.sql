@@ -4,11 +4,12 @@
 -- Description:	Процедура получения списка групп параметров
 -- ============================================================
 
-IF OBJECT_ID('[dbo].[ParameterGroupsGet]', 'P') is null
- EXEC('create procedure [dbo].[ParameterGroupsGet] as begin return -1 end')
+IF OBJECT_ID('[dbo].[ParameterGroupGet]', 'P') is null
+ EXEC('create procedure [dbo].[ParameterGroupGet] as begin return -1 end')
 GO
 
-ALTER PROCEDURE dbo.ParameterGroupsGet
+ALTER PROCEDURE dbo.ParameterGroupGet
+@ParameterGroupID BIGINT = null,
 @LoginID	BIGINT 
 AS
 BEGIN
@@ -18,7 +19,9 @@ BEGIN
 		ParameterGroupShortName,				
 		ParameterGroupName,
 		LoginID
-	FROM dbo.ParameterGroups
-	WHERE LoginID IN (0,@LoginID) 
+	FROM dbo.ParameterGroups	
+	WHERE 
+	ParameterGroupID = IsNull(@ParameterGroupID,ParameterGroupID) and
+	LoginID IN (0,@LoginID) 
 END	
 GO
