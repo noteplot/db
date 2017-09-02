@@ -11,6 +11,13 @@ CONSTRAINT FK_Units_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
 )
 go
 
+/*
+мскебни кнцхм!!!
+
+UPDATE dbo.Units
+SET LoginID = 0
+
+*/
 SET IDENTITY_INSERT Units ON
 GO
 -- нАЬЕЕ

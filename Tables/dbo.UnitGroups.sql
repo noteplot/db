@@ -9,6 +9,15 @@ CREATE TABLE dbo.UnitGroups
 )
 go
 
+/*
+НУЛЕВОЙ ЛОГИН!!!
+
+UPDATE dbo.UnitGroups
+SET LoginID = 0
+
+*/
+
+
 SET IDENTITY_INSERT UnitGroups ON
 GO
 INSERT INTO UnitGroups (UnitGroupID, UnitGroupName, UnitGroupShortName) VALUES (1, N'Общие‎‎', N'Общие‎‎')
