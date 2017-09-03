@@ -12,7 +12,15 @@ CONSTRAINT FK_Units_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
 go
 
 /*
+НУЛЕВОЙ UNITID - для строковых параметров, которые НЕ редактируются
+SET IDENTITY_INSERT Units ON
+GO
+INSERT INTO dbo.Units (UnitID, UnitGroupID, UnitName, UnitShortName,LoginID) VALUES (0, 1, N'', N'',0)
+SET IDENTITY_INSERT Units OFF
+GO
+
 НУЛЕВОЙ ЛОГИН!!!
+
 
 UPDATE dbo.Units
 SET LoginID = 0
