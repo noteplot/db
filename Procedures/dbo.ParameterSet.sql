@@ -4,12 +4,12 @@
 -- Description:	Создание/редактирование/удаление параметра
 -- =============================================
 
-IF OBJECT_ID('[dbo].[ParamsSet]', 'P') is null
- EXEC('create procedure [dbo].[ParamsSet] as begin return -1 end')
+IF OBJECT_ID('[dbo].[ParameterSet]', 'P') is null
+ EXEC('create procedure [dbo].[ParameterSet] as begin return -1 end')
 GO
 
-ALTER PROCEDURE dbo.ParamsSet 
-	@ParamID			BIGINT out,
+ALTER PROCEDURE dbo.ParameterSet 
+	@ParameterID		BIGINT out,
 	@ParamShortName		NVARCHAR(24),
 	@ParamName			NVARCHAR(48),
 	@ParamUnitID		BIGINT,
@@ -19,7 +19,7 @@ ALTER PROCEDURE dbo.ParamsSet
 	@ParamValueMAX		DECIMAL(28,6) = NULL,
 	@ParamValueMIN		DECIMAL(28,6) = NULL,
 	@LoginID			BIGINT,
-	@Active				BIT,			
+	@Active				BIT = 1,			
 	@Mode				TINYINT	
 AS
 BEGIN
@@ -40,7 +40,7 @@ BEGIN
 				
 				INSERT INTO dbo.Parameters(ParameterKindID,ParameterGroupID)
 				VALUES(0,@ParameterGroupID)
-				SET @ParamID = SCOPE_IDENTITY();
+				SET @ParameterID = SCOPE_IDENTITY();
 								
 				INSERT INTO dbo.Params
 				(			
@@ -56,7 +56,7 @@ BEGIN
 				)
 				VALUES
 				(
-					@ParamID,
+					@ParameterID,
 					@ParamShortName,
 					@ParamName,
 					@ParamUnitID,
@@ -70,6 +70,8 @@ BEGIN
 			ELSE
 			IF @Mode = 1
 			BEGIN
+				IF @ParameterID IS NULL
+					RAISERROR('Параметр не установлен!',16,3);
 				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
 					RAISERROR('Уже есть параметр с таким названием!',16,3);
 			
@@ -78,7 +80,7 @@ BEGIN
 					ParameterGroupID	= @ParameterGroupID,
 					[Active]			= @Active 
 				WHERE
-					ParameterID			= @ParamID 
+					ParameterID			= @ParameterID 
 				
 				
 				UPDATE dbo.Params						
@@ -91,14 +93,14 @@ BEGIN
 					ParamValueMAX		= @ParamValueMAX,
 					ParamValueMIN		= @ParamValueMIN,				
 					LoginID				= @LoginID 	
-				WHERE ParamID = @ParamID
+				WHERE ParamID = @ParameterID
 						
 			END
 			ELSE					 
 			IF @Mode = 2		 
 				DELETE FROM dbo.Params	-- AFTER trigger
 				WHERE 	
-					 ParamID = @ParamID
+					 ParamID = @ParameterID
 					 AND LoginID = @LoginID					
 			COMMIT			
 	END TRY
