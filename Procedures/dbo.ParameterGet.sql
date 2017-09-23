@@ -19,7 +19,7 @@ BEGIN
 		ps.ParameterGroupID				AS ParameterGroupID,
 		pg.ParameterGroupShortName		AS ParameterGroupShortName,
 		p.ParamShortName				AS ParameterShortName,
-		p.ParamName						AS ParametertName,
+		p.ParamName						AS ParameterName,
 		p.ParamUnitID					AS ParameterUnitID,
 		u.UnitShortName					AS ParameterUnitShortName,
 		p.ParamTypeID					AS ParameterTypeID,

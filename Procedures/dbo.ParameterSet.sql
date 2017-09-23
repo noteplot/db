@@ -72,7 +72,7 @@ BEGIN
 			BEGIN
 				IF @ParameterID IS NULL
 					RAISERROR('Параметр не установлен!',16,3);
-				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
+				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamID != @ParameterID and ParamShortName = @ParamShortName AND LoginID = @LoginID)
 					RAISERROR('Уже есть параметр с таким названием!',16,3);
 			
 				UPDATE dbo.Parameters
