@@ -19,7 +19,9 @@ BEGIN
 		pr.SecondaryParamID AS ParameterID,
 		p.ParamShortName AS ParameterShortName, 	
 		pr.MathOperationID,
-		mo.MathOperationShortName
+		mo.MathOperationShortName,
+		mo.MathOperationName,
+		mo.MathOperationShortName + ' ('+mo.MathOperationName+')' AS MathOperationFullName
 	FROM dbo.ParamRelations AS pr
 	JOIN dbo.Params AS p ON p.ParamID = pr.PrimaryParamID
 	JOIN dbo.MathOperations AS mo ON mo.MathOperationID = pr.MathOperationID 	
