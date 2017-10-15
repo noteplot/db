@@ -2,6 +2,7 @@
 -- Author:		[ab]
 -- Create date: 20170813
 -- Description:	Создание/редактирование/удаление параметра
+-- @Mode:		0 - создание 1- изменение 2 - удаление       
 -- =============================================
 
 IF OBJECT_ID('[dbo].[ParameterSet]', 'P') is null
@@ -42,6 +43,13 @@ BEGIN
 		BEGIN TRAN
 			IF @Mode in (0,1) and @ParamTypeID IN (1,2) AND @JSON IS NULL 
 				RAISERROR('Должен быть указан хотя бы один связанный параметр для вычисления значения!',16,2);
+			-- изменение типа параметра	
+			IF @Mode = 1 AND @ParamTypeID = 0 AND (EXISTS(SELECT 1 FROM dbo.Params AS p WHERE p.ParamID = @ParameterID AND p.ParamTypeID != @ParamTypeID))
+			BEGIN
+				-- удаляем связанные параметры
+				DELETE FROM dbo.ParamRelations
+				WHERE PrimaryParamID = @ParameterID			
+			END
 			
 			IF @Mode = 0 
 			BEGIN
@@ -106,7 +114,7 @@ BEGIN
 				WHERE ParamID = @ParameterID						
 			END
 			ELSE					 
-			IF @Mode = 2		 
+			IF @Mode = 2
 				DELETE FROM dbo.Params	-- AFTER trigger
 				WHERE 	
 					 ParamID = @ParameterID
@@ -155,7 +163,14 @@ BEGIN
 				END
 				
 				IF @id = 0
-					RAISERROR('Должен быть указан хотя бы один связанный параметр для вычисления значения!',16,9);
+					RAISERROR('Должен быть указан хотя бы один связанный параметр!',16,9);
+
+				IF EXISTS(
+						SELECT 1 
+						FROM @rls AS r
+						WHERE r.ParameterID = @ParameterID
+				)								
+					RAISERROR('Связанный параметр не должен совпадать с текущим!',16,10);					
 				
 				IF EXISTS(
 						SELECT 1 
@@ -163,14 +178,14 @@ BEGIN
 						JOIN dbo.Params AS p ON p.ParamID = r.ParameterID
 						AND p.ParamTypeID != 0
 				)								
-					RAISERROR('Связанные параметры должны быть простого типа!',16,10);					
+					RAISERROR('Связанные параметры должны быть простого типа!',16,11);					
 										
 				if exists(SELECT top 1 1
 				FROM @rls 
 				GROUP BY ParameterID
 				HAVING(COUNT(1) > 1)
 				)
-					RAISERROR('Связанные параметры не должны дублироваться!',16,11);
+					RAISERROR('Связанные параметры не должны дублироваться!',16,12);
 				
 				MERGE dbo.ParamRelations AS t
 				USING (SELECT ParameterID AS [SecondaryParamID], MathOperationID
