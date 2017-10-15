@@ -23,7 +23,7 @@ BEGIN
 		mo.MathOperationName,
 		mo.MathOperationShortName + ' ('+mo.MathOperationName+')' AS MathOperationFullName
 	FROM dbo.ParamRelations AS pr
-	JOIN dbo.Params AS p ON p.ParamID = pr.PrimaryParamID
+	JOIN dbo.Params AS p ON p.ParamID = pr.SecondaryParamID
 	JOIN dbo.MathOperations AS mo ON mo.MathOperationID = pr.MathOperationID 	
 	WHERE PrimaryParamID = @PrimaryParamID 	
 END

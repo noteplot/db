@@ -19,13 +19,20 @@ ALTER PROCEDURE dbo.ParameterSet
 	@ParamValueMAX		DECIMAL(28,6) = NULL,
 	@ParamValueMIN		DECIMAL(28,6) = NULL,
 	@LoginID			BIGINT,
-	@Active				BIT = 1,			
+	@Active				BIT = 1,
+	@JSON				VARCHAR(MAX) = NULL,			
 	@Mode				TINYINT	
 AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
-		@ErrorMessage NVARCHAR(4000);
+		@ErrorMessage NVARCHAR(4000),
+		@ErrorSeverity INT,	
+		@ErrorState INT,	   		
+		@lParameter int = LEN('"ParameterID":"'),
+		@lMathOperationID int = LEN('"MathOperationID":"'),
+		@rParameterID bigint, @rMathOperationID bigint
+		
 						
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -33,10 +40,13 @@ BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
 		BEGIN TRAN
+			IF @Mode in (0,1) and @ParamTypeID IN (1,2) AND @JSON IS NULL 
+				RAISERROR('Должен быть указан хотя бы один связанный параметр для вычисления значения!',16,2);
+			
 			IF @Mode = 0 
 			BEGIN
 				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть параметр с таким названием!',16,2);
+					RAISERROR('Уже есть параметр с таким названием!',16,3);				
 				
 				INSERT INTO dbo.Parameters(ParameterKindID,ParameterGroupID)
 				VALUES(0,@ParameterGroupID)
@@ -71,9 +81,9 @@ BEGIN
 			IF @Mode = 1
 			BEGIN
 				IF @ParameterID IS NULL
-					RAISERROR('Параметр не установлен!',16,3);
+					RAISERROR('Параметр не установлен!',16,4);
 				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamID != @ParameterID and ParamShortName = @ParamShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть параметр с таким названием!',16,3);
+					RAISERROR('Уже есть параметр с таким названием!',16,5);
 			
 				UPDATE dbo.Parameters
 				SET 					
@@ -93,31 +103,92 @@ BEGIN
 					ParamValueMAX		= @ParamValueMAX,
 					ParamValueMIN		= @ParamValueMIN,				
 					LoginID				= @LoginID 	
-				WHERE ParamID = @ParameterID
-						
+				WHERE ParamID = @ParameterID						
 			END
 			ELSE					 
 			IF @Mode = 2		 
 				DELETE FROM dbo.Params	-- AFTER trigger
 				WHERE 	
 					 ParamID = @ParameterID
-					 AND LoginID = @LoginID					
+					 AND LoginID = @LoginID
+			
+			IF @Mode IN (0,1) AND @JSON IS NOT NULL 
+			BEGIN
+				declare
+					@rls table (
+						ParameterID INT NOT NULL,
+						MathOperationID INT  NOT NULL
+					)
+				declare		
+					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
+
+				set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
+				while(1=1)
+				begin
+					set @ind1 = CHARINDEX('"ParameterID":"',@JSON,@ind1)
+					if @ind1 = 0
+						break;
+					set @ind1 += @lParameter
+					set @ind2 = CHARINDEX('"',@JSON,@ind1);
+					if @ind2 = 0
+					BEGIN
+						RAISERROR('Не определен идентификатор связанного параметра!',16,6);	
+						break;
+					END;	
+					set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1) 
+					set @ind1 = CHARINDEX('"MathOperationID":"',@JSON,@ind2)+@lMathOperationID
+					if @ind1 = 0
+					BEGIN
+						RAISERROR('Не указан тип математической операции!',16,7);	
+						break;
+					END;						
+					set @ind2 = CHARINDEX('"',@JSON,@ind1);
+					if @ind2 = 0
+					BEGIN
+						RAISERROR('Не указан идентификатор математической операции!',16,8);	
+						break;
+					END;						
+					set @rMathOperationID  = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+					insert into @rls(ParameterID,MathOperationID)
+						select @rParameterID,@rMathOperationID
+					set @id += 1
+				END
+				
+				IF @id = 0
+					RAISERROR('Должен быть указан хотя бы один связанный параметр для вычисления значения!',16,9);
+				
+				IF EXISTS(
+						SELECT 1 
+						FROM @rls AS r
+						JOIN dbo.Params AS p ON p.ParamID = r.ParameterID
+						AND p.ParamTypeID != 0
+				)								
+					RAISERROR('Связанные параметры должны быть простого типа!',16,10);					
+										
+				if exists(SELECT top 1 1
+				FROM @rls 
+				GROUP BY ParameterID
+				HAVING(COUNT(1) > 1)
+				)
+					RAISERROR('Связанные параметры не должны дублироваться!',16,11);
+				
+				MERGE dbo.ParamRelations AS t
+				USING (SELECT ParameterID AS [SecondaryParamID], MathOperationID
+				       FROM @rls) AS s 
+				ON (t.PrimaryParamID = @ParameterID AND t.SecondaryParamID = s.SecondaryParamID)
+				WHEN NOT MATCHED THEN
+					INSERT (PrimaryParamID, SecondaryParamID,MathOperationID)
+					VALUES (@ParameterID, s.SecondaryParamID,s.MathOperationID)
+				WHEN NOT MATCHED BY SOURCE THEN
+					DELETE; 												    	         												
+			END					 					
 			COMMIT			
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT <> 0 
+		IF @@TRANCOUNT != 0 
 			ROLLBACK;
-		SET @ErrorMessage = ERROR_MESSAGE();				
-		RAISERROR(@ErrorMessage,16,4);
-		/* 
-			SELECT
-				ERROR_NUMBER() AS ErrorNumber,
-				ERROR_SEVERITY() AS ErrorSeverity,
-				ERROR_STATE() AS ErrorState,
-				ERROR_PROCEDURE() AS ErrorProcedure,
-				ERROR_LINE() AS ErrorLine,
-				ERROR_MESSAGE() AS ErrorMessage
-		*/
+		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
+		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
 	END CATCH	  
 END
 GO
