@@ -92,7 +92,11 @@ BEGIN
 					RAISERROR('ѕараметр не установлен!',16,4);
 				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamID != @ParameterID and ParamShortName = @ParamShortName AND LoginID = @LoginID)
 					RAISERROR('”же есть параметр с таким названием!',16,5);
-			
+				IF @ParamValueMAX IS NOT NULL AND @ParamValueMIN IS NOT NULL 
+				BEGIN
+					IF @ParamValueMAX <= @ParamValueMIN 
+					RAISERROR('ћаксимальное значение должно быть больше минимальног!',16,5);
+				END
 				UPDATE dbo.Parameters
 				SET 					
 					ParameterGroupID	= @ParameterGroupID,
