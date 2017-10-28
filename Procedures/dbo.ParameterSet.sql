@@ -128,7 +128,7 @@ BEGIN
 			BEGIN
 				declare
 					@rls table (
-						ParameterID INT NOT NULL,
+						ParameterID BIGINT NOT NULL,
 						MathOperationID INT  NOT NULL
 					)
 				declare		
