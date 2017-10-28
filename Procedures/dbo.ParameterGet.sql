@@ -28,6 +28,7 @@ BEGIN
 		pvt.ParamValueTypeShortName		AS ParameterValueTypeShortName,
 		p.ParamValueMAX					AS ParameterValueMAX,
 		p.ParamValueMIN					AS ParameterValueMIN,
+		ps.[Active]						AS Active,
 		p.LoginID						AS LoginID
 	FROM dbo.Params AS p
 	JOIN dbo.Parameters AS ps ON ps.ParameterID = p.ParamID

@@ -11,7 +11,7 @@ go
 
 
 
-CREATE UNIQUE NONCLUSTERED INDEX IX_ParamGroups_Login_ShortName ON dbo.ParameterGroups
+CREATE UNIQUE NONCLUSTERED INDEX IU_ParamGroups_Login_ShortName ON dbo.ParameterGroups
 ( 
 	LoginID               ASC,
 	ParameterGroupShortName  ASC
