@@ -95,7 +95,7 @@ BEGIN
 				IF @ParamValueMAX IS NOT NULL AND @ParamValueMIN IS NOT NULL 
 				BEGIN
 					IF @ParamValueMAX <= @ParamValueMIN 
-					RAISERROR('Максимальное значение должно быть больше минимальног!',16,5);
+					RAISERROR('Максимальное значение должно быть больше минимального!',16,5);
 				END
 				UPDATE dbo.Parameters
 				SET 					
