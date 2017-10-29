@@ -15,11 +15,13 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	SELECT 
-		ps.ParameterID					AS ParameterID,
-		ps.ParameterGroupID				AS ParameterGroupID,
-		pg.ParameterGroupShortName		AS ParameterGroupShortName,
-		p.LoginID						AS LoginID,
-		ps.[Active]						AS [Active] 
+		p.PacketID					AS PacketID,
+		ps.ParameterGroupID			AS ParameterGroupID,
+		pg.ParameterGroupShortName	AS ParameterGroupShortName,		
+		p.PacketShortName			AS PacketShortName,
+		p.PacketName				AS PacketName,		
+		p.LoginID					AS LoginID,
+		ps.[Active]					AS [Active] 
 	FROM dbo.Packets AS p
 	JOIN dbo.Parameters AS ps ON ps.ParameterID = p.PacketID
 	JOIN dbo.ParameterGroups AS pg ON pg.ParameterGroupID = ps.ParameterGroupID
