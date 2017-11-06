@@ -1,15 +1,15 @@
 -- =============================================
 -- Author:		[ab]
--- Create date: 20170813
--- Description:	Удаление параметра
+-- Create date: 20171106
+-- Description:	Удаление пакета
 -- =============================================
 
-IF OBJECT_ID('[dbo].[ParameterDelete]', 'P') is null
- EXEC('create procedure [dbo].[ParameterDelete] as begin return -1 end')
+IF OBJECT_ID('[dbo].[PacketDelete]', 'P') is null
+ EXEC('create procedure [dbo].[PacketDelete] as begin return -1 end')
 GO
 
-ALTER PROCEDURE dbo.ParameterDelete 
-	@ParameterID		BIGINT,
+ALTER PROCEDURE dbo.PacketDelete 
+	@PacketID		BIGINT,
 	@LoginID			BIGINT
 AS
 BEGIN
@@ -19,19 +19,19 @@ BEGIN
 						
 	BEGIN TRY
 		BEGIN TRAN
-			DELETE FROM dbo.ParamRelations	-- AFTER trigger
+			DELETE FROM dbo.PacketParams
 			WHERE 	
-					PrimaryParamID = @ParameterID
-			
-			DELETE FROM dbo.Params	-- AFTER trigger
+					PacketID = @PacketID
+		
+			DELETE FROM dbo.Packets	-- AFTER trigger -> delete Parameters ??
 			WHERE 	
-					ParamID = @ParameterID
+					PacketID = @PacketID
 					AND LoginID = @LoginID
 
 			DELETE FROM dbo.Parameters
 			WHERE 	
-					ParameterID = @ParameterID
-										
+					ParameterID = @PacketID
+
 			COMMIT			
 	END TRY
 	BEGIN CATCH
