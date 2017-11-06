@@ -10,7 +10,7 @@ IF OBJECT_ID('[dbo].[PacketSet]', 'P') is null
 GO
 
 ALTER PROCEDURE dbo.PacketSet 
-	@PacketID			BIGINT out,
+@PacketID			BIGINT out,
 	@PacketShortName	NVARCHAR(24),
 	@PacketName			NVARCHAR(48),
 	@ParameterGroupID	BIGINT,
@@ -26,7 +26,8 @@ BEGIN
 		@ErrorSeverity INT,	
 		@ErrorState INT,	   		
 		@lParameter int = LEN('"ParameterID":"'),
-		@rParameterID BIGINT
+		@lPacketParameterActive int = LEN('"PacketParameterActive":"'),
+		@rParameterID BIGINT,@rPacketParameterActive BIT
 		
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -96,7 +97,8 @@ BEGIN
 				declare
 					@rls table (
 						PacketParamPosition INT NOT NULL IDENTITY(1,1),
-						ParameterID bigint NOT NULL
+						ParameterID bigint NOT NULL,
+						Active BIT NOT NULL
 					)
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
@@ -111,12 +113,25 @@ BEGIN
 					set @ind2 = CHARINDEX('"',@JSON,@ind1);
 					if @ind2 = 0
 					BEGIN
-						RAISERROR('Не определен идентификатор связанного параметра!',16,6);	
+						RAISERROR('Не определен идентификатор параметра!',16,6);	
 						break;
 					END;	
 					set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1) 
-					insert into @rls(ParameterID)
-						select @rParameterID
+					set @ind1 = CHARINDEX('"PacketParameterActive":"',@JSON,@ind2)+@lPacketParameterActive
+					if @ind1 = 0
+					BEGIN
+						RAISERROR('Не указан признак достyпности параметра!',16,7);	
+						break;
+					END;						
+					set @ind2 = CHARINDEX('"',@JSON,@ind1);
+					if @ind2 = 0
+					BEGIN
+						RAISERROR('Нет данных по достyпности параметра!',16,8);	
+						break;
+					END;						
+					set @rPacketParameterActive  = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+					insert into @rls(ParameterID,Active)
+						select @rParameterID,@rPacketParameterActive						
 					set @id += 1
 				END
 				
@@ -131,16 +146,16 @@ BEGIN
 					RAISERROR('Параметры не должны дублироваться!',16,12);
 				
 				MERGE dbo.PacketParams AS t
-				USING (SELECT ParameterID, PacketParamPosition FROM @rls) AS s 
-				ON (t.PacketID = @PacketID AND t.ParamID = s.ParameterID)
+				USING (SELECT @PacketID as PacketID, ParameterID, Active,PacketParamPosition FROM @rls) AS s 
+				ON (t.PacketID = s.PacketID AND t.ParamID = s.ParameterID)
 				WHEN NOT MATCHED THEN
 					INSERT (PacketID, ParamID,PacketParamPosition)
-					VALUES (@PacketID, s.ParameterID,s.PacketParamPosition)
-				WHEN NOT MATCHED BY SOURCE THEN
-					DELETE -- TODO: проверять, используется ли в мониторе
+					VALUES (@PacketID, s.ParameterID,s.PacketParamPosition)					
+				WHEN NOT MATCHED BY SOURCE AND t.PacketID = @PacketID  THEN
+					DELETE -- TODO: проверять на монитор
 				WHEN MATCHED THEN
 					UPDATE 
-						SET PacketParamPosition = s.PacketParamPosition;
+						SET PacketParamPosition = s.PacketParamPosition,[Active] = s.[Active];
 
 			END					 					
 			COMMIT			

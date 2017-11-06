@@ -1,6 +1,6 @@
 CREATE TABLE dbo.PacketParams
 ( 
-	PacketParamID        bigint  NOT NULL ,
+	PacketParamID        bigint  NOT NULL IDENTITY(1,1),
 	PacketID             bigint  NOT NULL ,
 	ParamID              bigint  NOT NULL ,
 	PacketParamPosition  smallint  NOT NULL ,
