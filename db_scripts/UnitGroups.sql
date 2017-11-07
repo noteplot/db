@@ -44,45 +44,48 @@ GO
 
 -- Время
 
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (1, 1, N'Академический час', N'Академический час', N'ct')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (2, 1, N'Век', N'Век', N'century')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (3, 1, N'Вигилия', N'Вигилия', N'vigilia')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (4, 1, N'Гигагод', N'Гигагод', N'Gyr')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (5, 1, N'Год', N'Год', N'yr')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (6, 1, N'Декада', N'Декада', N'tdp')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (7, 1, N'Десятилетие', N'Десятилетие', N'dec')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (8, 1, N'Индикт', N'Индикт', N'Индикт')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (9, 1, N'Йом', N'Йом', N'Йом')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (10, 1, N'Квартал', N'Квартал', N'q')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (11, 1, N'Месяц', N'Месяц', N'M')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (12, 1, N'Метонов цикл', N'Метонов цикл', N'Метонов цикл')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (13, 1, N'Минута', N'Минута', N'm')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (14, 1, N'Неделя', N'Неделя', N'wk')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (15, 1, N'Полугодие', N'Полугодие', N'hyr')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (16, 1, N'Сутки', N'Сутки', N'Сутки')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (17, 1, N'Час', N'Час', N'h')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (18, 1, N'Человеко-час', N'Человеко-час', N'hh')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (19, 1, N'Эра', N'Эра', N'age')
+INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName) VALUES
+  (1, 1, N'Академический час', N'ач')
+, (2, 1, N'Век', N'вк')
+, (3, 1, N'Вигилия', N'вг')
+, (4, 1, N'Гигагод', N'гг')
+, (5, 1, N'Год', N'г')
+, (6, 1, N'Декада', N'дкд')
+, (7, 1, N'Десятилетие', N'дт')
+, (8, 1, N'Индикт', N'идк')
+, (9, 1, N'Йом', N'Йом')
+, (10, 1, N'Квартал', N'кв')
+, (11, 1, N'Месяц', N'м')
+, (12, 1, N'Метонов цикл', N'мц')
+, (13, 1, N'Минута', N'м')
+, (14, 1, N'Неделя', N'ндл')
+, (15, 1, N'Полугодие', N'пг')
+, (16, 1, N'Сутки', N'стк')
+, (17, 1, N'Час', N'ч')
+, (18, 1, N'Человеко-час', N'чч')
+, (19, 1, N'Эра', N'э')
 GO
 
 -- Вязкость
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (20, 2, N'Градус Энглера', N'Градус Энглера', N'aE')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (21, 2, N'Пуаз', N'Пуаз', N'Пуаз')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (22, 2, N'Стокс', N'Стокс', N'Стокс')
+INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName) VALUES
+  (20, 2, N'Градус Энглера', N'гЭ')
+, (21, 2, N'Пуаз', N'пз')
+, (22, 2, N'Стокс', N'стк')
 GO
 
 --Давление
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (23, 3, N'Атмосфера', N'Атмосфера', N'at')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (24, 3, N'Бар', N'Бар', N'bar')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (25, 3, N'Бария', N'Бария', N'Ba')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (26, 3, N'Дюйм водяного столба', N'Дюйм водяного столба', N'iwg')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (27, 3, N'Дюйм ртутного столба', N'Дюйм ртутного столба', N'inHg')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (28, 3, N'Миллиметр водяного столба', N'Миллиметр водяного столба', N'mmH2O')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (29, 3, N'Миллиметр ртутного столба', N'Миллиметр ртутного столба', N'mmHg')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (30, 3, N'Паскаль', N'Паскаль', N'Pa')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (31, 3, N'Планковское давление', N'Планковское давление', N'Pp')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (32, 3, N'Пьеза', N'Пьеза', N'pz')
-INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName, UnitCode) VALUES (33, 3, N'Фунт на квадратный дюйм', N'Фунт на квадратный дюйм', N'psi')
+INSERT INTO Units (UnitID, UnitGroupID, UnitName, UnitShortName) VALUES
+  (23, 3, N'Атмосфера', N'атм')
+, VALUES (24, 3, N'Бар', N'бар')
+, VALUES (25, 3, N'Бария', N'бр')
+, VALUES (26, 3, N'Дюйм водяного столба', N'двс')
+, VALUES (27, 3, N'Дюйм ртутного столба', N'дрс')
+, VALUES (28, 3, N'Миллиметр водяного столба', N'ммвс')
+, VALUES (29, 3, N'Миллиметр ртутного столба', N'ммрс')
+, VALUES (30, 3, N'Паскаль', N'п')
+, VALUES (31, 3, N'Планковское давление', N'пд')
+, VALUES (32, 3, N'Пьеза', N'пз')
+, VALUES (33, 3, N'Фунт на квадратный дюйм', N'фкд')
 GO
 
 
