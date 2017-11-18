@@ -11,7 +11,7 @@ GO
 ALTER PROCEDURE dbo.ParameterGet
 @ParameterID BIGINT = null,
 @LoginID	 BIGINT,
-@Mode		 TINYINT = 0 -- 0 - все 1 - простые и расчетные 2-итоговые монитора
+@Mode		 TINYINT = 0 -- 0 - все; 1 - простые и расчетные; 2-итоговые монитора
 AS
 BEGIN
 	SET NOCOUNT ON;
