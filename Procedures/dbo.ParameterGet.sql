@@ -10,7 +10,8 @@ GO
 
 ALTER PROCEDURE dbo.ParameterGet
 @ParameterID BIGINT = null,
-@LoginID	BIGINT 
+@LoginID	 BIGINT,
+@Mode		 TINYINT = 0 -- 0 - все 1 - простые и расчетные 2-итоговые монитора
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -38,6 +39,9 @@ BEGIN
 	JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 	
 	WHERE 
 	ps.ParameterID = IsNull(@ParameterID,ps.ParameterID) and
-	p.LoginID IN (0,@LoginID) 
+	p.LoginID IN (0,@LoginID) AND
+	(
+		(@Mode = 0) OR (@Mode = 1 AND pt.ParamTypeID IN (0,1)) OR (@Mode = 2 AND pt.ParamTypeID = 2) 
+	)   
 END	
 GO
