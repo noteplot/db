@@ -18,15 +18,18 @@ BEGIN
 		mp.ParameterID				AS ParameterID,
 		p.ParamShortName			AS ParameterShortName,
 		p.ParamName					AS ParameterName,
-		p.ParamTypeID				AS ParamTypeID, 		
+		p.ParamTypeID				AS ParameterTypeID,
+		pt.ParamTypeName			AS ParameterTypeName, 		
 		mp.MonitorParamPosition		AS MonitorParamPosition,		
 		pv.MonitorParamValue		AS MonitorParamValue,			
 		mp.[Active]					AS MonitorParameterActive 
 	FROM dbo.Monitors AS m
 	JOIN dbo.MonitorParams AS mp ON mp.MonitorID = m.MonitorID
 	JOIN dbo.Params AS p ON p.ParamID = mp.ParameterID
+	JOIN dbo.ParamTypes AS pt ON pt.ParamTypeID = p.ParamTypeID
 	LEFT JOIN dbo.MonitorTotalParamValues AS pv ON pv.MonitorParamID = mp.MonitorParamID
 	WHERE 
-		m.MonitorID = @MonitorID 
-END	
-GO
+		m.MonitorID = @MonitorID
+	ORDER BY mp.MonitorParamPosition
+END
+GO	
