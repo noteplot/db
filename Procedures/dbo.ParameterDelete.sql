@@ -19,6 +19,18 @@ BEGIN
 						
 	BEGIN TRY
 		BEGIN TRAN
+			IF EXISTS(SELECT 1 FROM dbo.PacketParams WHERE ParamID = @ParameterID)
+			BEGIN
+				set @ErrorMessage = 'Данный параметр входит в пакет. Перед удалением необходимо исключить его из пакета.'
+				RAISERROR(@ErrorMessage,16,1);
+			END 
+
+			IF EXISTS(SELECT 1 FROM dbo.ParamRelations WHERE SecondaryParamID = @ParameterID)
+			BEGIN
+				set @ErrorMessage = 'Данный параметр используется для вычисления других параметров. Перед удалением необходимо исключить его из расчетов.'
+				RAISERROR(@ErrorMessage,16,1);
+			END 
+			
 			DELETE FROM dbo.ParamRelations	-- AFTER trigger
 			WHERE 	
 					PrimaryParamID = @ParameterID
