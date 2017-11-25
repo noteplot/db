@@ -18,10 +18,10 @@ BEGIN
 		m.MonitorID					AS MonitorID,
 		mp.ParameterID				AS ParameterID,
 		
-		IIF(pc.PacketID IS NOT NULL, pm.ParamShortName, pc.PacketShortName) AS ParameterShortName,
-		IIF(pc.PacketID IS NOT NULL, pm.ParamName, pc.PacketName) AS ParameterName,
+		IIF(pm.ParamID IS NOT NULL, pm.ParamShortName, pc.PacketShortName) AS ParameterShortName,
+		IIF(pm.ParamID IS NOT NULL, pm.ParamName, pc.PacketName) AS ParameterName,
 		pm.ParamTypeID				AS ParameterTypeID,
-		IIF(pc.PacketID IS NOT NULL, pt.ParamTypeName, @PackName) AS ParameterTypeName,
+		IIF(pm.ParamID IS NOT NULL, pt.ParamTypeName, @PackName) AS ParameterTypeName,
 
 		mp.MonitorParamPosition		AS MonitorParamPosition,		
 		pv.MonitorParamValue		AS MonitorParameterValue,			
