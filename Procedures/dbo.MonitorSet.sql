@@ -178,6 +178,7 @@ BEGIN
 				       FROM @par AS p
 				       JOIN dbo.MonitorParams AS mp ON mp.MonitorID = @MonitorID 
 				       AND mp.ParameterID = p.ParameterID
+				       JOIN dbo.Params AS p2 ON p2.ParamID = p.ParameterID AND p2.ParamTypeID = 2 
 				) AS s ON (t.MonitorParamID = s.MonitorParamID)
 				WHEN MATCHED THEN 
 					UPDATE
