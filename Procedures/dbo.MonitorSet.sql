@@ -156,21 +156,15 @@ BEGIN
 				HAVING(COUNT(1) > 1)
 				)
 					RAISERROR('Параметры не должны дублироваться!',16,12);
-				
-				MERGE dbo.MonitorParams AS t
-				USING (SELECT @MonitorID as MonitorID, ParameterID, Active, MonitorParamPosition FROM @par) AS s 
-				ON (t.MonitorID = s.MonitorID AND t.ParameterID = s.ParameterID)
-				WHEN NOT MATCHED THEN
-					INSERT (MonitorID, ParameterID,MonitorParamPosition,Active)
-					VALUES (@MonitorID, s.ParameterID,s.MonitorParamPosition,s.Active)					
-				WHEN NOT MATCHED BY SOURCE AND t.MonitorID = @MonitorID  THEN
-					DELETE -- TODO: проверять на монитор
-				WHEN MATCHED THEN
-					UPDATE 
-						SET MonitorParamPosition = s.MonitorParamPosition,[Active] = s.[Active];
-						
+
 				-- значение итоговых значений
-				MERGE dbo.MonitorTotalParamValues AS t
+				;WITH vls as (
+					select v.*, mp.MonitorID from dbo.MonitorTotalParamValues AS v
+					JOIN dbo.MonitorParams AS mp ON mp.MonitorID = @MonitorID
+					AND mp.MonitorParamID = v.MonitorParamID
+				)			
+				--MERGE dbo.MonitorTotalParamValues AS t
+				MERGE vls AS t
 				USING (
 					SELECT 
 						mp.MonitorParamID as MonitorParamID,
@@ -185,7 +179,22 @@ BEGIN
 						SET t.MonitorParamValue = s.MonitorParamValue
 				WHEN NOT MATCHED THEN		 
 					INSERT (MonitorParamID, MonitorParamValue)
-					VALUES (s.MonitorParamID, s.MonitorParamValue);					
+					VALUES (s.MonitorParamID, s.MonitorParamValue)					
+				WHEN NOT MATCHED by source AND t.MonitorID = @MonitorID THEN
+					DELETE; 
+				
+				MERGE dbo.MonitorParams AS t
+				USING (SELECT @MonitorID as MonitorID, ParameterID, Active, MonitorParamPosition FROM @par) AS s 
+				ON (t.MonitorID = s.MonitorID AND t.ParameterID = s.ParameterID)
+				WHEN NOT MATCHED THEN
+					INSERT (MonitorID, ParameterID,MonitorParamPosition,Active)
+					VALUES (@MonitorID, s.ParameterID,s.MonitorParamPosition,s.Active)					
+				WHEN NOT MATCHED BY SOURCE AND t.MonitorID = @MonitorID  THEN
+					DELETE -- TODO: проверять на монитор
+				WHEN MATCHED THEN
+					UPDATE 
+						SET MonitorParamPosition = s.MonitorParamPosition,[Active] = s.[Active];
+				
 			END					 					
 			COMMIT			
 	END TRY
