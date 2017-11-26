@@ -29,7 +29,8 @@ BEGIN
 		@lMonitorParameterActive int = LEN('"MonitorParameterActive":"'),
 		@rParameterID BIGINT,
 		@rMonitorParameterValue DECIMAL(28,6), 
-		@rMonitorParameterActive BIT
+		@rMonitorParameterActive BIT,
+		@comma char(1) = ',',@point char(1) = '.';
 		
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -125,7 +126,7 @@ BEGIN
 						RAISERROR('Нет данных по значению параметра!',16,8);	
 						break;
 					END;					
-					set @rMonitorParameterValue  = nullif(SUBSTRING(@JSON,@ind1,@ind2-@ind1),'');
+					set @rMonitorParameterValue  = REPLACE(nullif(SUBSTRING(@JSON,@ind1,@ind2-@ind1),''),@comma,@point);
 					--
 					set @ind1 = CHARINDEX('"MonitorParameterActive":"',@JSON,@ind2)+@lMonitorParameterActive
 					if @ind1 = 0
@@ -139,8 +140,8 @@ BEGIN
 						RAISERROR('Нет данных по достyпности параметра!',16,8);	
 						break;
 					END;
-					set @rMonitorParameterActive  = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
-					
+					set @rMonitorParameterActive  = SUBSTRING(@JSON,@ind1,@ind2-@ind1);
+										
 					insert into @par(ParameterID,MonitorParameterValue,[Active])
 						select @rParameterID,@rMonitorParameterValue,@rMonitorParameterActive
 												
