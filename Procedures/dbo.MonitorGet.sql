@@ -21,7 +21,8 @@ BEGIN
 		m.LoginID					AS LoginID,
 		m.[Active]					AS [Active] 
 	FROM dbo.Monitors AS m
-	WHERE 
-		m.LoginID IN (0,@LoginID) 
+	WHERE
+		m.MonitorID = ISNULL(@MonitorID,m.MonitorID) 
+		and m.LoginID IN (0,@LoginID) 
 END	
 GO
