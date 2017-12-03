@@ -1,6 +1,6 @@
 CREATE TABLE dbo.Monitorings
 ( 
-	MonitoringID         bigint  NOT NULL ,
+	MonitoringID         bigint  NOT NULL IDENTITY (1,1),
 	MonitorID            bigint  NOT NULL ,
 	MonitoringDate       DATETIME2(0)  NOT NULL ,
 	MonitoringComment    nvarchar(255)  NULL ,
@@ -9,7 +9,7 @@ CREATE TABLE dbo.Monitorings
 	ModifiedDate         datetime  NOT NULL ,
 	CONSTRAINT PK_Monitorings PRIMARY KEY  CLUSTERED (MonitoringID ASC),
 	CONSTRAINT FK_Monitorings_Monitors FOREIGN KEY (MonitorID) REFERENCES dbo.Monitors(MonitorID),
-CONSTRAINT FK_Monitorings_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
+	CONSTRAINT FK_Monitorings_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
 )
 go
 
@@ -18,7 +18,7 @@ go
 CREATE UNIQUE NONCLUSTERED INDEX IU_Monitoring_MonitorDate ON dbo.Monitorings
 ( 
 	MonitorID             ASC,
-	MonitoringDate        ASC
+	MonitoringDate        DESC
 )
 go
 
