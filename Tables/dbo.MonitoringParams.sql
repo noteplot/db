@@ -4,7 +4,7 @@ CREATE TABLE dbo.MonitoringParams
 	MonitoringID         bigint  NOT NULL ,
 	MonitorParamID       bigint  NOT NULL ,
 	ParamID              bigint  NOT NULL ,
-	ParamValue           numeric(28,6)  NOT NULL ,
+	ParamValue           decimal(28,6)  NOT NULL ,
 	CreationDate         datetime  NOT NULL ,
 	ModifiedDate         datetime  NOT NULL ,
 	CONSTRAINT PK_MonitoringParams PRIMARY KEY  CLUSTERED (MonitoringParamID ASC),
