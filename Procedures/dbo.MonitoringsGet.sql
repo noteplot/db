@@ -18,7 +18,7 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	if @Mode = 0
-		exec dbo.MonitoringsByTopGet @MonitorID
+		exec dbo.MonitoringsByTopGet @MonitorID, @Tops
 	else
 		exec dbo.MonitoringsByDateGet  @MonitorID,@DateFrom,@DateTo
 END	
