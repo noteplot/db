@@ -5,8 +5,8 @@ CREATE TABLE dbo.MonitoringParams
 	MonitorParamID       bigint  NOT NULL ,
 	ParamID              bigint  NOT NULL ,
 	ParamValue           decimal(28,6)  NOT NULL ,
-	CreationDate         datetime  NOT NULL ,
-	ModifiedDate         datetime  NOT NULL ,
+	CreationDateUTC      datetime  NOT NULL ,
+	ModifiedDateUTC      datetime  NOT NULL ,
 	CONSTRAINT PK_MonitoringParams PRIMARY KEY  CLUSTERED (MonitoringParamID ASC),
 	CONSTRAINT FK_MonitoringParams_Monitorings FOREIGN KEY (MonitoringID) REFERENCES dbo.Monitorings(MonitoringID),
 	CONSTRAINT FK_MonitoringParams_MonitorParams FOREIGN KEY (MonitorParamID) REFERENCES dbo.MonitorParams(MonitorParamID),
@@ -18,7 +18,7 @@ go
 
 ALTER TABLE dbo.MonitoringParams
 	ADD CONSTRAINT DF_MonitoringParams_CreationDate
-		 DEFAULT  GETUTCDATE() FOR CreationDate
+		 DEFAULT  GETUTCDATE() FOR CreationDateUTC
 go
 
 
@@ -26,7 +26,7 @@ go
 
 ALTER TABLE dbo.MonitoringParams
 	ADD CONSTRAINT DF_MonitoringParams_ModifiedDate
-		 DEFAULT  GETUTCDATE() FOR ModifiedDate
+		 DEFAULT  GETUTCDATE() FOR ModifiedDateUTC
 go
 
 
