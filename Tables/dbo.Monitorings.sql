@@ -4,8 +4,8 @@ CREATE TABLE dbo.Monitorings
 	MonitorID            bigint  NOT NULL ,
 	MonitoringDate       DATETIME2(0)  NOT NULL ,
 	MonitoringComment    nvarchar(255)  NULL ,
-	CreationDate         datetime  NOT NULL ,
-	ModifiedDate         datetime  NOT NULL ,
+	CreationDateUTC      datetime  NOT NULL ,
+	ModifiedDateUTC      datetime  NOT NULL ,
 	CONSTRAINT PK_Monitorings PRIMARY KEY  CLUSTERED (MonitoringID ASC),
 	CONSTRAINT FK_Monitorings_Monitors FOREIGN KEY (MonitorID) REFERENCES dbo.Monitors(MonitorID),
 )
@@ -24,7 +24,7 @@ go
 
 ALTER TABLE dbo.Monitorings
 	ADD CONSTRAINT DF_CurrentUTCDate_MonitoringCreationDate
-		 DEFAULT  GETUTCDATE() FOR CreationDate
+		 DEFAULT  GETUTCDATE() FOR CreationDateUTC
 go
 
 
@@ -32,7 +32,7 @@ go
 
 ALTER TABLE dbo.Monitorings
 	ADD CONSTRAINT DF_CurrentUTCDate_MonitoringModifiedDate
-		 DEFAULT  GETUTCDATE() FOR ModifiedDate
+		 DEFAULT  GETUTCDATE() FOR ModifiedDateUTC
 go
 
 
