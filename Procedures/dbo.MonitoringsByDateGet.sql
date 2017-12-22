@@ -33,8 +33,8 @@ BEGIN
 		mg.MonitorID				AS MonitorID,		
 		mg.MonitoringDate			AS MonitoringDate,
 		mg.MonitoringComment		AS MonitoringComment, 
-		mg.CreationDate				AS CreationDate,
-		mg.ModifiedDate				AS ModifiedDate		 
+		mg.CreationDateUTC				AS CreationDateUTC,
+		mg.ModifiedDateUTC				AS ModifiedDateUTC		 
 	FROM dbo.Monitorings AS mg
 	WHERE
 		mg.MonitorID = @MonitorID		

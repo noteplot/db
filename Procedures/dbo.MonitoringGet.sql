@@ -9,7 +9,8 @@ IF OBJECT_ID('[dbo].[MonitoringGet]', 'P') is null
 GO
 
 ALTER PROCEDURE dbo.MonitoringGet 
-@MonitoringID	BIGINT
+@MonitoringID	BIGINT,
+@MonitorID		BIGINT
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -19,8 +20,8 @@ BEGIN
 		m.MonitorShortName			AS MonitorShortName,				
 		mg.MonitoringDate			AS MonitoringDate,
 		mg.MonitoringComment		AS MonitoringComment, 
-		mg.CreationDate				AS CreationDate,
-		mg.ModifiedDate				AS ModifiedDate		 
+		mg.CreationDateUTC			AS CreationDateUTC,
+		mg.ModifiedDateUTC			AS ModifiedDateUTC		 
 	FROM dbo.Monitorings AS mg
 	join dbo.Monitors AS m ON m.MonitorID = mg.MonitorID
 	WHERE
