@@ -93,7 +93,8 @@ BEGIN
 		JOIN dbo.Params AS p ON p.ParamID = mp.ParamID
 		JOIN dbo.Units AS u ON u.UnitID = p.ParamUnitID
 		JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID				 
-		WHERE mp.MonitoringID = @MonitoringID			
+		WHERE mp.MonitoringID = @MonitoringID
+		ORDER BY mp.MonitoringParamID			
 	END	
 END
 GO	
