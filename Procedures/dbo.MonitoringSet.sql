@@ -29,6 +29,7 @@ BEGIN
 		@lMonitorParamID int	= LEN('"MonitorParamID":"'),					   		
 		@lParameterID int		= LEN('"ParameterID":"'),
 		@lParameterValue int	= LEN('"ParameterValue":"'),
+		@sParameterValue NVARCHAR(255) = '"ParameterValue":"',
 		@rMonitoringParamID BIGINT,
 		@rMonitorParamID BIGINT, 
 		@rParameterID BIGINT, 
@@ -76,10 +77,11 @@ BEGIN
 						ParamValue DECIMAL(28,6) NOT NULL
 					)
 				declare		
-					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
+					@ind1 bigint=0, @ind2 bigint=0, @id int = 1 
 
 				-- значения параметров
-				set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');				
+				set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
+				DECLARE @rowId INT = 1				
 				while(1=1)
 				begin
 					set @ind1 = CHARINDEX('"MonitoringParamID":"',@JSON,@ind1)
@@ -136,8 +138,11 @@ BEGIN
 						break;
 					END;	
 					set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+					
+					SET @sParameterValue = '"ParameterValue'+CAST(@id AS NVARCHAR(255))+'":"';
+					SET @lParameterValue = LEN(@sParameterValue);
 					 
-					set @ind1 = CHARINDEX('"ParameterValue":"',@JSON,@ind2)--+@lParameterValue
+					set @ind1 = CHARINDEX(@sParameterValue,@JSON,@ind2)--+@lParameterValue
 					if @ind1 = 0
 					BEGIN
 						RAISERROR('Не указано идентификатор значения параметра!',16,7);	
