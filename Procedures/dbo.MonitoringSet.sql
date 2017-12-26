@@ -207,11 +207,11 @@ BEGIN
 					
 				UPDATE mp
 				SET
-					ParamValue = mp.ParamValue					 				
+					mp.ParamValue = p.ParamValue					 				
 				from dbo.MonitoringParams AS mp
 				JOIN @pars as p ON p.MonitoringParamID = mp.MonitoringParamID
 				AND p.ParamValue != mp.ParamValue 
-				WHERE mp.MonitoringID = @MonitoringID										 									
+				WHERE mp.MonitoringID = @MonitoringID	
 			END
 			ELSE					 
 			IF @Mode = 2

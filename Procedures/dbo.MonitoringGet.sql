@@ -9,8 +9,7 @@ IF OBJECT_ID('[dbo].[MonitoringGet]', 'P') is null
 GO
 
 ALTER PROCEDURE dbo.MonitoringGet 
-@MonitoringID	BIGINT,
-@MonitorID		BIGINT
+@MonitoringID	BIGINT
 AS
 BEGIN
 	SET NOCOUNT ON;
