@@ -31,6 +31,11 @@ BEGIN
 		@rMonitorParameterValue DECIMAL(28,6), 
 		@rMonitorParameterActive BIT,
 		@comma char(1) = ',',@point char(1) = '.';
+	DECLARE				
+		@ParamID BIGINT,
+		@CalcParamName NVARCHAR(255),
+		@ParamName NVARCHAR(255),
+		@PacketName  NVARCHAR(255);  					
 		
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -131,13 +136,13 @@ BEGIN
 					set @ind1 = CHARINDEX('"MonitorParameterActive":"',@JSON,@ind2)+@lMonitorParameterActive
 					if @ind1 = 0
 					BEGIN
-						RAISERROR('Не указан признак достyпности параметра!',16,7);	
+						RAISERROR('Не указан признак достyпности параметра!',16,9);	
 						break;
 					END;						
 					set @ind2 = CHARINDEX('"',@JSON,@ind1);
 					if @ind2 = 0
 					BEGIN
-						RAISERROR('Нет данных по достyпности параметра!',16,8);	
+						RAISERROR('Нет данных по достyпности параметра!',16,10);	
 						break;
 					END;
 					set @rMonitorParameterActive  = SUBSTRING(@JSON,@ind1,@ind2-@ind1);
@@ -149,22 +154,127 @@ BEGIN
 				END
 	
 				IF @id = 0
-					RAISERROR('Должен быть указан хотя бы один параметр!',16,9);
-														
+					RAISERROR('Должен быть указан хотя бы один параметр!',16,11);
+/*														
 				if exists(SELECT top 1 1
 				FROM @par 
 				GROUP BY ParameterID
 				HAVING(COUNT(1) > 1)
 				)
 					RAISERROR('Параметры не должны дублироваться!',16,12);
-
+*/				
+				-- Список всех параметров монитора(вклюяая пакеты)
+				DECLARE @pm TABLE (
+					ParamID BIGINT NOT NULL,
+					ParamName NVARCHAR(255) NOT NULL,
+					ParamTypeID TINYINT NOT NULL,
+					PacketName NVARCHAR(255) NULL					
+				)
+				INSERT INTO @pm
+				SELECT
+					p.ParamID,
+					p.ParamName,
+					p.ParamTypeID,
+					p.PacketName
+				FROM(
+					SELECT 
+						pm.ParamID,
+						pm.ParamShortName AS ParamName,
+						pm.ParamTypeID,
+						PacketName = null
+					FROM @par AS p
+					JOIN dbo.Params AS pm ON pm.ParamID = p.ParameterID
+					UNION ALL -- из пакетов
+					SELECT 
+						pm.ParamID,
+						pm.ParamShortName AS ParamName,
+						pm.ParamTypeID,
+						PacketName = pt.PacketShortName
+					FROM @par AS p
+					JOIN dbo.Packets AS pt ON pt.PacketID = p.ParameterID
+					JOIN dbo.PacketParams AS pp ON pp.PacketID = pt.PacketID				
+					JOIN dbo.Params AS pm ON pm.ParamID = pp.ParamID
+				) AS p
+/*								
+				if exists(SELECT top 1 1
+				FROM @pm 
+				GROUP BY ParamID
+				HAVING(COUNT(1) > 1)
+				)				
+					RAISERROR('Параметры не должны дублироваться!',16,12);
+*/				
+/*
+				select top 1 @ParamName = ParamName 
+				FROM @pm
+				GROUP BY ParamID,ParamName
+				HAVING(COUNT(1) > 1)
+*/
+				select top 1 @ParamID = ParamID 
+				FROM @pm
+				GROUP BY ParamID
+				HAVING(COUNT(1) > 1)
+				
+				IF @@ROWCOUNT > 0 
+				BEGIN
+					SELECT TOP 1 
+						@ParamName = ParamName,
+						@PacketName = PacketName					
+					FROM @pm
+					WHERE ParamID = @ParamID
+					ORDER BY PacketName Desc 
+					set @ErrorMessage = 'Параметры не должны дублироваться! ';
+					
+					IF @PacketName IS NOT NULL
+						set @ErrorMessage += 'см.парaметр "'+@ParamName+'" пакет "'+@PacketName+'".'
+					ELSE	
+						set @ErrorMessage += 'см.парaметр "'+@ParamName+'".';
+																		
+					RAISERROR(@ErrorMessage,16,12); 
+				END
+				
+				-- Проверка корректности расчетных параметров
+				DECLARE @pcl TABLE (
+					CalcParamID BIGINT,
+					CalcParamName NVARCHAR(255),
+					ParamID BIGINT,
+					ParamName NVARCHAR(255)  					
+				)
+								
+				INSERT INTO @pcl(
+				    CalcParamID,
+				    CalcParamName,
+				    ParamID,
+				    ParamName
+				  )			
+				SELECT
+				    pr.PrimaryParamID AS CalcParamID,
+				    pm.ParamName AS CalcParamName,
+					pr.SecondaryParamID AS ParamID,
+					pm2.ParamShortName  AS ParamName 
+				FROM @pm AS pm
+				JOIN dbo.Params AS p ON p.ParamID = pm.ParamID AND p.ParamTypeID IN (1,2)
+				JOIN dbo.ParamRelations AS pr ON pr.PrimaryParamID = pm.ParamID
+				JOIN dbo.Params AS pm2 ON pm2.ParamID = pr.SecondaryParamID				  					
+				
+				SELECT TOP 1 
+					@CalcParamName = pcl.CalcParamName,
+					@ParamName = pcl.ParamName					
+				FROM @pcl AS pcl
+				LEFT JOIN @par AS par ON par.ParameterID = pcl.ParamID
+				WHERE par.ParameterID IS NULL  	  					
+				IF @@rowcount != 0
+				BEGIN
+					set @ErrorMessage = 'Для расчетных(итоговых) параметров в мониторе должны быть указаны все параметры, которые используются для их расчета.';
+					set @ErrorMessage += ' В частности, для парaметра "'+@CalcParamName+'" должен быть указан параметр "'+@ParamName+'".';
+					RAISERROR(@ErrorMessage,16,13); 
+				END				 
+				
 				-- значение итоговых значений
 				;WITH vls as (
 					select v.*, mp.MonitorID from dbo.MonitorTotalParamValues AS v
 					JOIN dbo.MonitorParams AS mp ON mp.MonitorID = @MonitorID
 					AND mp.MonitorParamID = v.MonitorParamID
 				)			
-				--MERGE dbo.MonitorTotalParamValues AS t
 				MERGE vls AS t
 				USING (
 					SELECT 
