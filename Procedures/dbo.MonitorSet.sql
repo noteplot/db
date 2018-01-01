@@ -2,7 +2,7 @@
 -- Author:		[ab]
 -- Create date: 20171119
 -- Description:	Создание/редактирование/удаление монитора
--- @Mode:		0 - создание 1- изменение 2 - удаление       
+-- @Mode:		0 - создание 1- изменение
 -- =============================================
 
 IF OBJECT_ID('[dbo].[MonitorSet]', 'P') is null
@@ -38,7 +38,7 @@ BEGIN
 		@PacketName  NVARCHAR(255);  					
 		
 	BEGIN TRY
-		IF @Mode NOT IN (0,1,2)
+		IF @Mode NOT IN (0,1)
 		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
@@ -85,13 +85,7 @@ BEGIN
 					MonitorID = @MonitorID			
 					AND LoginID	= @LoginID 				
 			END
-			ELSE					 
-			IF @Mode = 2
-				DELETE FROM dbo.Monitors	-- AFTER trigger
-				WHERE 	
-					 MonitorID = @MonitorID AND 
-					 LoginID = @LoginID
-			
+				
 			IF @Mode IN (0,1) AND @JSON IS NOT NULL 
 			BEGIN
 				declare
@@ -260,14 +254,34 @@ BEGIN
 					@CalcParamName = pcl.CalcParamName,
 					@ParamName = pcl.ParamName					
 				FROM @pcl AS pcl
-				LEFT JOIN @par AS par ON par.ParameterID = pcl.ParamID
-				WHERE par.ParameterID IS NULL  	  					
+				LEFT JOIN @pm AS pm ON pm.ParamID = pcl.ParamID
+				WHERE pm.ParamID IS NULL  	  					
 				IF @@rowcount != 0
 				BEGIN
 					set @ErrorMessage = 'Для расчетных(итоговых) параметров в мониторе должны быть указаны все параметры, которые используются для их расчета.';
 					set @ErrorMessage += ' В частности, для парaметра "'+@CalcParamName+'" должен быть указан параметр "'+@ParamName+'".';
 					RAISERROR(@ErrorMessage,16,13); 
-				END				 
+				END				 				
+				
+				-- проверка на существование измерений по монитору
+				IF @Mode = 1
+				BEGIN
+					IF EXISTS(
+						SELECT 1 FROM dbo.MonitoringParams AS mps
+						JOIN dbo.Monitorings AS m ON m.MonitoringID = mps.MonitoringID AND m.MonitorID = @MonitorID
+						JOIN dbo.MonitorParams AS mp ON mp.MonitorParamID = mps.MonitorParamID AND mp.MonitorID = m.MonitorID)						 
+					BEGIN						 
+						IF EXISTS(
+							SELECT TOP 1 1 FROM dbo.MonitorParams AS mp
+							LEFT JOIN @par AS pr ON pr.ParameterID = mp.ParameterID
+							WHERE  mp.MonitorID = @MonitorID AND pr.ParameterID IS NULL
+							)	
+						BEGIN
+							set @ErrorMessage = 'Из шаблона измерений нельзя удалить параметр, если были проведены измерения. Для исключения параметра из измерений достаточно убрать признак доступности параметра.';
+							RAISERROR(@ErrorMessage,16,14); 
+						END
+					END
+				END
 				
 				-- значение итоговых значений
 				;WITH vls as (
