@@ -12,10 +12,13 @@ CONSTRAINT FK_MonitorParams_Parameters FOREIGN KEY (ParameterID) REFERENCES dbo.
 go
 
 
-
 ALTER TABLE dbo.MonitorParams
-	ADD CONSTRAINT DF_MonitorParams_Active
+	ADD CONSTRAINT DF_MonitorParams_Position
 		 DEFAULT  1 FOR MonitorParamPosition
 go
 
+ALTER TABLE dbo.MonitorParams
+	ADD CONSTRAINT DF_MonitorParams_Active
+		 DEFAULT  1 FOR Active
+go
 

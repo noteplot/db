@@ -5,10 +5,11 @@ CREATE TABLE dbo.ParamRelations
 	PrimaryParamID       bigint  NOT NULL ,
 	SecondaryParamID     bigint  NOT NULL ,
 	MathOperationID      tinyint  NOT NULL ,
+	ParamRelationPosition smallint  NOT NULL ,
 	CONSTRAINT PK_ParamRelations PRIMARY KEY  CLUSTERED (ParamRelationID ASC),
 	CONSTRAINT FK_ParamRelations_MathOperations FOREIGN KEY (MathOperationID) REFERENCES dbo.MathOperations(MathOperationID),
-CONSTRAINT FK_ParamRelations_SecondaryParams FOREIGN KEY (SecondaryParamID) REFERENCES dbo.Params(ParamID),
-CONSTRAINT FK_ParamRelations_PrimaryParams FOREIGN KEY (PrimaryParamID) REFERENCES dbo.Params(ParamID)
+	CONSTRAINT FK_ParamRelations_SecondaryParams FOREIGN KEY (SecondaryParamID) REFERENCES dbo.Params(ParamID),
+	CONSTRAINT FK_ParamRelations_PrimaryParams FOREIGN KEY (PrimaryParamID) REFERENCES dbo.Params(ParamID)
 )
 go
 
@@ -27,6 +28,13 @@ CREATE NONCLUSTERED INDEX IX_ParamRelations_Secondary ON dbo.ParamRelations
 ( 
 	SecondaryParamID      ASC
 )
+go
+
+
+
+ALTER TABLE dbo.ParamRelations
+	ADD CONSTRAINT DF_ParamRelations_Position
+		 DEFAULT  1 FOR ParamRelationPosition
 go
 
 

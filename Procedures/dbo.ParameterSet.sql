@@ -128,6 +128,7 @@ BEGIN
 			BEGIN
 				declare
 					@rls table (
+						ParamRelationPosition INT NOT NULL IDENTITY(1,1),
 						ParameterID BIGINT NOT NULL,
 						MathOperationID INT  NOT NULL
 					)
@@ -192,12 +193,15 @@ BEGIN
 					RAISERROR('—в€занные параметры не должны дублироватьс€!',16,12);
 				
 				MERGE dbo.ParamRelations AS t
-				USING (SELECT ParameterID AS [SecondaryParamID], MathOperationID
+				USING (SELECT ParameterID AS [SecondaryParamID], MathOperationID, ParamRelationPosition
 				       FROM @rls) AS s 
 				ON (t.PrimaryParamID = @ParameterID AND t.SecondaryParamID = s.SecondaryParamID)
 				WHEN NOT MATCHED THEN
 					INSERT (PrimaryParamID, SecondaryParamID,MathOperationID)
 					VALUES (@ParameterID, s.SecondaryParamID,s.MathOperationID)
+				WHEN MATCHED THEN
+					UPDATE 
+						SET ParamRelationPosition = s.ParamRelationPosition					
 				WHEN NOT MATCHED BY SOURCE THEN
 					DELETE; 												    	         												
 			END					 					

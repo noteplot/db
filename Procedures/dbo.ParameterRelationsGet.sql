@@ -25,6 +25,7 @@ BEGIN
 	FROM dbo.ParamRelations AS pr
 	JOIN dbo.Params AS p ON p.ParamID = pr.SecondaryParamID
 	JOIN dbo.MathOperations AS mo ON mo.MathOperationID = pr.MathOperationID 	
-	WHERE PrimaryParamID = @PrimaryParamID 	
+	WHERE PrimaryParamID = @PrimaryParamID
+	ORDER BY pr.ParamRelationPosition 	
 END
 GO
