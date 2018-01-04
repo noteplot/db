@@ -202,7 +202,7 @@ BEGIN
 				WHEN MATCHED THEN
 					UPDATE 
 						SET ParamRelationPosition = s.ParamRelationPosition					
-				WHEN NOT MATCHED BY SOURCE THEN
+				WHEN NOT MATCHED BY SOURCE and t.PrimaryParamID = @ParameterID THEN
 					DELETE; 												    	         												
 			END					 					
 			COMMIT			
