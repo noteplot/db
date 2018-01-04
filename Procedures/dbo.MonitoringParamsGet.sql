@@ -50,7 +50,10 @@ BEGIN
 			cast(NULL AS BIGINT) AS MonitoringParamID,  
 			par.MonitorParamID,
 			par.ParameterID,
-			cast(null as decimal(28,6)) as ParameterValue,
+			case
+				when p.ParamTypeID = 0 then cast(null as decimal(28,6))
+				else 0
+			end as ParameterValue,
 			p.ParamShortName AS ParameterShortName,
 			p.ParamName AS ParameterName,
 			p.ParamTypeID AS ParameterTypeID,

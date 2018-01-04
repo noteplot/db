@@ -3,7 +3,7 @@
 -- Create date: 20171224
 -- Description:	—оздание/редактирование/удаление измерени€
 -- JSON - последовательность полей в записи: 
--- MonitoringParamID,MonitorParamID,ParameterID,ParameterValue
+-- MonitoringParamID,MonitorParamID,ParameterID,ParameterTypeID,ParameterValue
 -- @Mode:		0 - создание 1- изменение 2 - удаление       
 -- =============================================
 
@@ -17,7 +17,7 @@ ALTER PROCEDURE dbo.MonitoringSet
 	@MonitoringDate		DATETIME2(0),
 	@MonitoringComment	NVARCHAR(255),
 	@JSON				VARCHAR(MAX),			
-	@Mode				TINYINT	
+	@Mode				TINYINT
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -25,16 +25,28 @@ BEGIN
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
 		@ErrorState INT,
-		@lMonitoringParamID int	= LEN('"MonitoringParamID":"'),
+		@lMonitoringParamID int	= LEN('"MonitoringParamID":"'), 
 		@lMonitorParamID int	= LEN('"MonitorParamID":"'),					   		
 		@lParameterID int		= LEN('"ParameterID":"'),
 		@lParameterValue int	= LEN('"ParameterValue":"'),
-		@sParameterValue NVARCHAR(255) = '"ParameterValue":"',
+		@lParameterTypeID INT	= LEN('"ParameterTypeID":"'),
+		@sParameterValue NVARCHAR(255) = '"ParameterValue":"',						
 		@rMonitoringParamID BIGINT,
 		@rMonitorParamID BIGINT, 
 		@rParameterID BIGINT, 
 		@rParameterValue DECIMAL(28,6),
-		@comma char(1) = ',',@point char(1) = '.';
+		@rParameterTypeID TINYINT,
+		@comma char(1) = ',',@point char(1) = '.',
+		@rs INT = 0,
+		@rc INT = 0,
+		@rt INT = 0,
+		@rl INT = 0,
+		@ParamID BIGINT,
+		@ParamNewID BIGINT,
+		@RelationParamID	BIGINT,
+		@MathOperationID	TINYINT,
+		@ParamValue  DECIMAL(28,6),
+		@ParamCalcValue  DECIMAL(28,6) = 0;
 								
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -74,14 +86,39 @@ BEGIN
 						MonitoringParamID BIGINT NULL,
 						MonitorParamID BIGINT NOT NULL,
 						ParamID BIGINT NOT NULL,
-						ParamValue DECIMAL(28,6) NOT NULL
+						ParamValue DECIMAL(28,6) NULL,
+						ParamTypeID TINYINT
 					)
+				declare
+					@parc table (
+						ID INT IDENTITY(1,1) PRIMARY KEY,
+						MonitoringParamID BIGINT NULL,
+						MonitorParamID BIGINT NOT NULL,
+						ParamID BIGINT NOT NULL,
+						ParamValue DECIMAL(28,6) NULL
+					)
+				declare
+					@part table (
+						ID INT IDENTITY(1,1) PRIMARY KEY,
+						MonitoringParamID BIGINT NULL,
+						MonitorParamID BIGINT NOT NULL,
+						ParamID BIGINT NOT NULL,
+						ParamValue DECIMAL(28,6) NULL
+					)
+				DECLARE @prel table(
+						ID INT IDENTITY(1,1) PRIMARY KEY,						
+						PrimaryParamID BIGINT NOT NULL,
+						SecondaryParamID BIGINT NOT NULL,
+						CalcType INT NOT NULL,
+						MathOperationID TINYINT NOT NULL
+				)	
+					
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 1 
 
 				-- значени€ параметров
 				set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
-				DECLARE @rowId INT = 1				
+				--DECLARE @rowId INT = 1				
 				while(1=1)
 				begin
 					set @ind1 = CHARINDEX('"MonitoringParamID":"',@JSON,@ind1)
@@ -139,30 +176,73 @@ BEGIN
 					END;	
 					set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
 					
+					set @ind1 = CHARINDEX('"ParameterTypeID":"',@JSON,@ind1)--+@lParameterID
+					if @ind1 = 0
+					BEGIN
+						RAISERROR('Ќе определен идентификатор типа параметра!',16,6);
+						break;
+					END;	
+					set @ind1 += @lParameterTypeID
+					set @ind2 = CHARINDEX('"',@JSON,@ind1);
+					if @ind2 = 0
+					BEGIN
+						RAISERROR('Ќе определен тип параметра!',16,6);	
+						break;
+					END;	
+					set @rParameterTypeID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+
 					SET @sParameterValue = '"ParameterValue'+CAST(@id AS NVARCHAR(255))+'":"';
 					SET @lParameterValue = LEN(@sParameterValue);
 					 
 					set @ind1 = CHARINDEX(@sParameterValue,@JSON,@ind2)--+@lParameterValue
 					if @ind1 = 0
 					BEGIN
-						RAISERROR('Ќе указано идентификатор значени€ параметра!',16,7);	
+						RAISERROR('Ќе указан идентификатор значени€ параметра!',16,7);	
 						break;
 					END;
 					set @ind1 += @lParameterValue						
 					set @ind2 = CHARINDEX('"',@JSON,@ind1);
 					if @ind2 = 0
 					BEGIN
-						RAISERROR('Ќе указано значение параметра!',16,8);	
-						break;
-					END;						
+						set @rParameterValue = NULL -- дл€ расчетных значений
+						--RAISERROR('Ќе указано значение параметра!',16,8);	
+						--break;
+					END						
 					set @rParameterValue  = REPLACE(nullif(SUBSTRING(@JSON,@ind1,@ind2-@ind1),''),@comma,@point);
 					
-					insert into @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue)
-						select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue
-						
+					insert into @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID)
+						select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,@rParameterTypeID
+					SET @rs += 1;	
+					IF @rParameterTypeID = 1
+					BEGIN
+						insert into @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue)
+							select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue
+						SET @rc += 1;	
+					END		
+					ELSE
+						IF @rParameterTypeID = 2
+						BEGIN
+							insert into @part(MonitoringParamID,MonitorParamID,ParamID,ParamValue)
+								select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue
+							SET @rt += 1;		
+						END		
+									
 					set @id += 1
-				end
+				END
+				
 			END		
+							
+			IF @Mode IN (0,1) 
+			BEGIN
+				IF EXISTS(
+					SELECT 1 FROM @pars AS p
+					JOIN dbo.Params AS p2 ON p2.ParamID = p.ParamID AND p2.ParamTypeID = 0
+					WHERE p.ParamValue IS NULL 
+				)
+				BEGIN
+					RAISERROR('ƒл€ всех простых параметров должно быть указано значение измерени€!',16,7);	
+				END	
+			END
 					
 			IF @Mode = 0
 			BEGIN
@@ -173,7 +253,85 @@ BEGIN
 				)
 					RAISERROR('ѕараметры в измерении не должны дублироватьс€!',16,12);				
 			END
-			
+							
+			-- –асчетные параметры
+			IF @Mode IN (0,1)
+			BEGIN
+				IF @rc > 0
+				BEGIN
+						INSERT INTO @prel(
+							PrimaryParamID,
+							SecondaryParamID,
+							CalcType,
+							MathOperationID							
+						)
+						SELECT
+							PrimaryParamID,
+							SecondaryParamID,
+							CalcType,
+							MathOperationID													 
+						FROM (	
+							SELECT 
+								pr.PrimaryParamID,
+								pr.SecondaryParamID,
+								SUM(p2.ParamTypeID) OVER(PARTITION BY pr.[PrimaryParamID]) AS CalcType,
+								pr.MathOperationID
+							FROM dbo.ParamRelations AS pr
+							JOIN @parc AS p ON p.ParamID = pr.PrimaryParamID
+							JOIN @pars AS p2 ON p2.ParamID = pr.SecondaryParamID																		
+						) AS p	
+						ORDER BY p.CalcType -- сортируем по наличию в св€занных параметрах вычисл€емых типов - сначала вычисл€ем все расчетные параметры, на основании простых
+						SET @rl = @@ROWCOUNT
+						SET @id = 1
+						SET @ParamID = -1;
+						SET @ParamCalcValue = 0; 
+					WHILE(1=1)
+					BEGIN
+						IF @id <= @rl
+						BEGIN
+							SELECT 
+								@ParamNewID = p.PrimaryParamID,
+								@RelationParamID = p.SecondaryParamID,
+								@MathOperationID = p.MathOperationID,
+								@ParamValue = ps.ParamValue							 
+							FROM @prel AS p
+							JOIN @pars AS ps ON ps.ParamID = p.SecondaryParamID
+							WHERE ID =@id
+						END
+						
+						IF (@id > @rl) OR (@ParamNewID != @ParamID) 
+						BEGIN
+							UPDATE @pars
+								SET ParamValue = @ParamCalcValue
+							WHERE ParamID = @ParamID
+							IF (@id > @rl) BREAK;
+							if @RelationParamID = @ParamID
+								SET @ParamValue = @ParamCalcValue
+									
+							SET @ParamID = @ParamNewID;
+							SET @ParamCalcValue = 0;
+						END							
+													
+						IF @MathOperationID = 1
+						BEGIN
+							SET @ParamCalcValue = @ParamCalcValue + @ParamValue;	
+						END
+						ELSE
+							IF @MathOperationID = 2
+							BEGIN
+								SET @ParamCalcValue = @ParamCalcValue - @ParamValue;
+							END	
+							ELSE
+								IF @MathOperationID = 3
+								BEGIN
+									SET @ParamCalcValue = @ParamCalcValue * @ParamValue;
+								END
+															
+						SET @id += 1;	
+					END
+				END
+			END
+			----------------------			
 			IF @Mode = 0 
 			BEGIN
 				INSERT INTO dbo.Monitorings(MonitorID,MonitoringDate,MonitoringComment)
@@ -223,7 +381,7 @@ BEGIN
 				DELETE FROM dbo.Monitorings			
 				WHERE 	
 				MonitoringID		= @MonitoringID				
-			END					 					
+			END						
 			COMMIT			
 	END TRY
 	BEGIN CATCH

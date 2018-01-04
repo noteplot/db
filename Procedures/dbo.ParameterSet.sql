@@ -176,7 +176,7 @@ BEGIN
 						WHERE r.ParameterID = @ParameterID
 				)								
 					RAISERROR('—в€занный параметр не должен совпадать с текущим!',16,10);					
-				
+/*				
 				IF EXISTS(
 						SELECT 1 
 						FROM @rls AS r
@@ -184,7 +184,7 @@ BEGIN
 						AND p.ParamTypeID != 0
 				)								
 					RAISERROR('—в€занные параметры должны быть простого типа!',16,11);					
-										
+*/										
 				if exists(SELECT top 1 1
 				FROM @rls 
 				GROUP BY ParameterID
