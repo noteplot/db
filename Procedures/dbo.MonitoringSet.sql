@@ -46,7 +46,8 @@ BEGIN
 		@RelationParamID	BIGINT,
 		@MathOperationID	TINYINT,
 		@ParamValue  DECIMAL(28,6),
-		@ParamCalcValue  DECIMAL(28,6) = 0;
+		@ParamCalcValue  DECIMAL(28,6) = 0,
+		@Scale TINYINT = 0;
 								
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -95,7 +96,8 @@ BEGIN
 						MonitoringParamID BIGINT NULL,
 						MonitorParamID BIGINT NOT NULL,
 						ParamID BIGINT NOT NULL,
-						ParamValue DECIMAL(28,6) NULL
+						ParamValue DECIMAL(28,6) NULL,
+						Scale TINYINT NOT NULL
 					)
 				declare
 					@part table (
@@ -103,14 +105,16 @@ BEGIN
 						MonitoringParamID BIGINT NULL,
 						MonitorParamID BIGINT NOT NULL,
 						ParamID BIGINT NOT NULL,
-						ParamValue DECIMAL(28,6) NULL
+						ParamValue DECIMAL(28,6) NULL,
+						Scale TINYINT NOT NULL
 					)
 				DECLARE @prel table(
 						ID INT IDENTITY(1,1) PRIMARY KEY,						
 						PrimaryParamID BIGINT NOT NULL,
 						SecondaryParamID BIGINT NOT NULL,
 						CalcType INT NOT NULL,
-						MathOperationID TINYINT NOT NULL
+						MathOperationID TINYINT NOT NULL,
+						Scale TINYINT NOT NULL
 				)	
 					
 				declare		
@@ -215,15 +219,21 @@ BEGIN
 					SET @rs += 1;	
 					IF @rParameterTypeID = 1
 					BEGIN
-						insert into @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue)
-							select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue
+						insert into @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
+							select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,pvt.Scale
+							FROM dbo.Params AS p
+							JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
+							WHERE ParamID = @rParameterID
 						SET @rc += 1;	
 					END		
 					ELSE
 						IF @rParameterTypeID = 2
 						BEGIN
-							insert into @part(MonitoringParamID,MonitorParamID,ParamID,ParamValue)
-								select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue
+							insert into @part(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
+								select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,pvt.Scale
+							FROM dbo.Params AS p
+							JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
+							WHERE ParamID = @rParameterID
 							SET @rt += 1;		
 						END		
 									
@@ -263,19 +273,22 @@ BEGIN
 							PrimaryParamID,
 							SecondaryParamID,
 							CalcType,
-							MathOperationID							
+							MathOperationID,
+							Scale							
 						)
 						SELECT
 							PrimaryParamID,
 							SecondaryParamID,
 							CalcType,
-							MathOperationID													 
+							MathOperationID,
+							Scale													 
 						FROM (	
 							SELECT 
 								pr.PrimaryParamID,
 								pr.SecondaryParamID,
 								SUM(p2.ParamTypeID) OVER(PARTITION BY pr.[PrimaryParamID]) AS CalcType,
-								pr.MathOperationID
+								pr.MathOperationID,
+								p.Scale
 							FROM dbo.ParamRelations AS pr
 							JOIN @parc AS p ON p.ParamID = pr.PrimaryParamID
 							JOIN @pars AS p2 ON p2.ParamID = pr.SecondaryParamID																		
@@ -293,7 +306,8 @@ BEGIN
 								@ParamNewID = p.PrimaryParamID,
 								@RelationParamID = p.SecondaryParamID,
 								@MathOperationID = p.MathOperationID,
-								@ParamValue = ps.ParamValue							 
+								@ParamValue = ps.ParamValue,
+								@Scale = p.Scale
 							FROM @prel AS p
 							JOIN @pars AS ps ON ps.ParamID = p.SecondaryParamID
 							WHERE ID =@id
@@ -302,7 +316,7 @@ BEGIN
 						IF (@id > @rl) OR (@ParamNewID != @ParamID) 
 						BEGIN
 							UPDATE @pars
-								SET ParamValue = @ParamCalcValue
+								SET ParamValue = ROUND(@ParamCalcValue,@Scale) -- окуругляем по scale
 							WHERE ParamID = @ParamID
 							IF (@id > @rl) BREAK;
 							if @RelationParamID = @ParamID
