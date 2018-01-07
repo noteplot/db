@@ -13,33 +13,6 @@ ALTER PROCEDURE dbo.MonitoringDelete
 AS
 BEGIN
 	SET NOCOUNT ON;
-	DECLARE 
-		@ErrorMessage NVARCHAR(4000);
-						
-	BEGIN TRY
-		BEGIN TRAN
-			DELETE FROM dbo.MonitoringParams
-			WHERE MonitoringID = @MonitoringID
-					
-			DELETE FROM dbo.Monitorings
-			WHERE MonitoringID = @MonitoringID
-
-			COMMIT			
-	END TRY
-	BEGIN CATCH
-		IF @@TRANCOUNT <> 0 
-			ROLLBACK;
-		SET @ErrorMessage = ERROR_MESSAGE();				
-		RAISERROR(@ErrorMessage,16,1);
-		/* 
-			SELECT
-				ERROR_NUMBER() AS ErrorNumber,
-				ERROR_SEVERITY() AS ErrorSeverity,
-				ERROR_STATE() AS ErrorState,
-				ERROR_PROCEDURE() AS ErrorProcedure,
-				ERROR_LINE() AS ErrorLine,
-				ERROR_MESSAGE() AS ErrorMessage
-		*/
-	END CATCH	  
+	exec dbo.MonitoringSet @MonitoringID = @MonitoringID,@Mode = 2
 END
 GO

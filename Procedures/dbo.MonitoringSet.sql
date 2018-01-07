@@ -13,10 +13,10 @@ GO
 
 ALTER PROCEDURE dbo.MonitoringSet 
 	@MonitoringID		BIGINT out,
-	@MonitorID			BIGINT,
-	@MonitoringDate		DATETIME2(0),
-	@MonitoringComment	NVARCHAR(255),
-	@JSON				VARCHAR(MAX),			
+	@MonitorID			BIGINT = NULL,
+	@MonitoringDate		DATETIME2(0) = NULL,
+	@MonitoringComment	NVARCHAR(255) = NULL,
+	@JSON				VARCHAR(MAX) = NULL,			
 	@Mode				TINYINT
 AS
 BEGIN
@@ -43,10 +43,13 @@ BEGIN
 		@rl INT = 0,
 		@ParamID BIGINT,
 		@ParamNewID BIGINT,
+		@MonitorParamID BIGINT,
 		@RelationParamID	BIGINT,
 		@MathOperationID	TINYINT,
 		@ParamValue  DECIMAL(28,6),
 		@ParamCalcValue  DECIMAL(28,6) = 0,
+		@RelationParamValue  DECIMAL(28,6),
+		@OldRelationParamValue  DECIMAL(28,6),						
 		@Scale TINYINT = 0;
 								
 	BEGIN TRY
@@ -54,11 +57,20 @@ BEGIN
 		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
-		BEGIN TRAN
+			IF @Mode IN (1,2)
+			BEGIN
+				IF @MonitorID IS NULL
+				BEGIN	 
+					SELECT @MonitorID = MonitorID FROM dbo.MonitoringParams AS mp
+					JOIN dbo.MonitorParams AS mp2 ON mp2.MonitorParamID = mp.MonitorParamID
+					WHERE mp.MonitoringID = @MonitoringID
+				END	
+			END
+		
 			IF @Mode = 0
 			BEGIN
 				IF @MonitorID IS NULL	 
-					RAISERROR('Не указан щаблон измерения',16,2);
+					RAISERROR('Не указан шаблон измерения',16,2);
 			END
 		
 			IF @Mode = 1
@@ -79,17 +91,19 @@ BEGIN
 				AND MonitoringID != IsNull(@MonitoringID,0)) 
 					RAISERROR('Уже есть измерение с такой датой и временем!',16,6);
 			END
+
+			declare
+				@pars table (
+					MonitoringParamID BIGINT NULL,
+					MonitorParamID BIGINT NOT NULL,
+					ParamID BIGINT NOT NULL,
+					ParamValue DECIMAL(28,6) NULL,
+					ParamTypeID TINYINT NOT NULL,
+					OldParamValue DECIMAL(28,6) NULL
+				)
 			
 			IF @Mode IN (0,1) 
 			BEGIN
-				declare
-					@pars table (
-						MonitoringParamID BIGINT NULL,
-						MonitorParamID BIGINT NOT NULL,
-						ParamID BIGINT NOT NULL,
-						ParamValue DECIMAL(28,6) NULL,
-						ParamTypeID TINYINT
-					)
 				declare
 					@parc table (
 						ID INT IDENTITY(1,1) PRIMARY KEY,
@@ -99,15 +113,7 @@ BEGIN
 						ParamValue DECIMAL(28,6) NULL,
 						Scale TINYINT NOT NULL
 					)
-				declare
-					@part table (
-						ID INT IDENTITY(1,1) PRIMARY KEY,
-						MonitoringParamID BIGINT NULL,
-						MonitorParamID BIGINT NOT NULL,
-						ParamID BIGINT NOT NULL,
-						ParamValue DECIMAL(28,6) NULL,
-						Scale TINYINT NOT NULL
-					)
+
 				DECLARE @prel table(
 						ID INT IDENTITY(1,1) PRIMARY KEY,						
 						PrimaryParamID BIGINT NOT NULL,
@@ -116,6 +122,17 @@ BEGIN
 						MathOperationID TINYINT NOT NULL,
 						Scale TINYINT NOT NULL
 				)	
+				-- параметры монитора
+				DECLARE @mrel table(
+						ID INT IDENTITY(1,1) PRIMARY KEY,
+						MonitorParamID BIGINT NOT NULL,						
+						ParamID BIGINT NOT NULL,
+						RelationParamID BIGINT NOT NULL,
+						RelationParamValue DECIMAL(28,6) NOT NULL,
+						OldRelationParamValue DECIMAL(28,6) NULL,
+						MathOperationID TINYINT NOT NULL,
+						Scale TINYINT NOT NULL
+				)
 					
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 1 
@@ -214,8 +231,9 @@ BEGIN
 					END						
 					set @rParameterValue  = REPLACE(nullif(SUBSTRING(@JSON,@ind1,@ind2-@ind1),''),@comma,@point);
 					
-					insert into @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID)
-						select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,@rParameterTypeID
+					insert into @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID,OldParamValue)
+						select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,@rParameterTypeID,
+						(SELECT mp.ParamValue FROM dbo.MonitoringParams AS mp where @rMonitoringParamID IS NOT NULL and mp.MonitoringParamID = @rMonitoringParamID) -- считываем текущее значение параметра монитора
 					SET @rs += 1;	
 					IF @rParameterTypeID = 1
 					BEGIN
@@ -224,24 +242,33 @@ BEGIN
 							FROM dbo.Params AS p
 							JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
 							WHERE ParamID = @rParameterID
-						SET @rc += 1;	
-					END		
-					ELSE
-						IF @rParameterTypeID = 2
-						BEGIN
-							insert into @part(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
-								select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,pvt.Scale
-							FROM dbo.Params AS p
-							JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
-							WHERE ParamID = @rParameterID
-							SET @rt += 1;		
-						END		
-									
+						SET @rc += 1;
+					END
 					set @id += 1
-				END
-				
-			END		
-							
+				END				
+			END
+			ELSE
+				BEGIN -- удаление
+					INSERT INTO @pars(
+						MonitoringParamID,
+						MonitorParamID,
+						ParamID,
+						ParamValue,
+						ParamTypeID,
+						OldParamValue
+						)
+					SELECT 
+						mp.MonitoringID,
+						mp.MonitorParamID,
+						mp.ParamID,
+						0, -- удаляем из параметра монитора	
+						p.ParamTypeID,
+						mp.ParamValue 
+					FROM dbo.MonitoringParams AS mp
+					JOIN dbo.Params AS p ON p.ParamID = mp.ParamID					
+					WHERE mp.MonitoringID = @MonitoringID
+				END					
+			
 			IF @Mode IN (0,1) 
 			BEGIN
 				IF EXISTS(
@@ -250,7 +277,7 @@ BEGIN
 					WHERE p.ParamValue IS NULL 
 				)
 				BEGIN
-					RAISERROR('Для всех простых параметров должно быть указано значение измерения!',16,7);	
+					RAISERROR('Для всех параметров должно быть указано значение измерения!',16,7);	
 				END	
 			END
 					
@@ -263,7 +290,8 @@ BEGIN
 				)
 					RAISERROR('Параметры в измерении не должны дублироваться!',16,12);				
 			END
-							
+
+		BEGIN TRAN										
 			-- Расчетные параметры
 			IF @Mode IN (0,1)
 			BEGIN
@@ -295,9 +323,7 @@ BEGIN
 						) AS p	
 						ORDER BY p.CalcType -- сортируем по наличию в связанных параметрах вычисляемых типов - сначала вычисляем все расчетные параметры, на основании простых
 						SET @rl = @@ROWCOUNT
-						SET @id = 1
-						SET @ParamID = -1;
-						SET @ParamCalcValue = 0; 
+						SELECT @id = 1,@ParamID = -1,@ParamCalcValue = 0; 
 					WHILE(1=1)
 					BEGIN
 						IF @id <= @rl
@@ -315,9 +341,12 @@ BEGIN
 						
 						IF (@id > @rl) OR (@ParamNewID != @ParamID) 
 						BEGIN
-							UPDATE @pars
-								SET ParamValue = ROUND(@ParamCalcValue,@Scale) -- окуругляем по scale
-							WHERE ParamID = @ParamID
+							IF @ParamID != -1
+							begin
+								UPDATE @pars
+									SET ParamValue = ROUND(@ParamCalcValue,@Scale) -- окуругляем по scale
+								WHERE ParamID = @ParamID
+							end
 							IF (@id > @rl) BREAK;
 							if @RelationParamID = @ParamID
 								SET @ParamValue = @ParamCalcValue
@@ -345,6 +374,94 @@ BEGIN
 					END
 				END
 			END
+			
+			-- ПАРАМЕТРЫ МОНИТОРА
+			INSERT INTO @mrel(
+				MonitorParamID,
+				ParamID,
+				RelationParamID,
+				RelationParamValue,
+				OldRelationParamValue,
+				MathOperationID,
+				Scale	
+			)		
+			SELECT
+				mp.MonitorParamID,
+				p.ParamID,
+				pr.SecondaryParamID AS RelationParamID,
+				ps.ParamValue AS RelationParamValue,
+				ps.OldParamValue AS OldRelationParamValue,
+				pr.MathOperationID,
+				pvt.Scale	
+			FROM dbo.MonitorParams AS mp
+			JOIN dbo.Params AS p ON p.ParamID = mp.ParameterID AND p.ParamTypeID = 2
+			JOIN dbo.ParamRelations AS pr ON pr.PrimaryParamID = mp.ParameterID
+			JOIN @pars AS ps ON ps.ParamID = pr.SecondaryParamID
+			JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
+			WHERE mp.MonitorID = @MonitorID AND mp.[Active] = 1 
+			
+			SET @rt = @@ROWCOUNT
+			SELECT @id = 1,@ParamID = -1,@ParamCalcValue = 0,@OldRelationParamValue = 0; 
+			IF @rt > 0
+			BEGIN
+				WHILE(1=1)
+				BEGIN
+					IF @id <= @rt
+					BEGIN
+						SELECT 
+							@MonitorParamID = p.MonitorParamID,
+							@ParamNewID = p.ParamID,
+							@RelationParamID = p.RelationParamID,
+							@MathOperationID = p.MathOperationID,
+							@RelationParamValue = p.RelationParamValue,
+							@OldRelationParamValue = IsNull(p.OldRelationParamValue,0),
+							@Scale = p.Scale
+						FROM @mrel AS p
+						WHERE ID =@id
+					END
+					IF (@id > @rt) OR (@ParamNewID != @ParamID ) 
+					BEGIN
+						IF @ParamID != -1
+						BEGIN 
+							--IF @Mode = 0	
+							--	UPDATE dbo.MonitorTotalParamValues
+							--	SET
+							--		MonitorParamValue = IsNull(MonitorParamValue,0) + ROUND(@ParamCalcValue,@Scale) -- округляем по scale
+							--	WHERE MonitorParamID= @MonitorParamID
+							--ELSE
+							--IF @Mode IN (0,1) -- обновление измерения
+								UPDATE dbo.MonitorTotalParamValues
+								SET
+									MonitorParamValue = IsNull(MonitorParamValue,0) + ROUND(@ParamCalcValue,@Scale) -- округляем по scale
+								WHERE MonitorParamID= @MonitorParamID
+							--ELSE								
+							--	IF @Mode = 2 -- удаление измерения
+							--		UPDATE dbo.MonitorTotalParamValues
+							--		SET
+							--			MonitorParamValue = IsNull(MonitorParamValue,0) - ROUND(@ParamCalcValue,@Scale)
+							--		WHERE MonitorParamID= @MonitorParamID
+						END;													
+						IF (@id > @rt) BREAK;									
+						SET @ParamID = @ParamNewID;
+						SET @ParamCalcValue = 0;
+					END			
+					IF @MathOperationID = 1
+					BEGIN
+						SET @ParamCalcValue = @ParamCalcValue + (@RelationParamValue - @OldRelationParamValue);	
+					END
+					ELSE
+						IF @MathOperationID = 2
+						BEGIN
+							SET @ParamCalcValue = @ParamCalcValue - (@RelationParamValue - @OldRelationParamValue);
+						END	
+						ELSE
+							IF @MathOperationID = 3
+							BEGIN
+								SET @ParamCalcValue = @ParamCalcValue * (@RelationParamValue - @OldRelationParamValue);
+							END
+					SET @id += 1;															
+				END;	
+			END;		
 			----------------------			
 			IF @Mode = 0 
 			BEGIN
@@ -364,7 +481,8 @@ BEGIN
 					MonitorParamID, 
 					ParamID,
 					ParamValue
-				FROM @pars 
+				FROM @pars
+				WHERE ParamTypeID IN (0,1);				
 			END
 			ELSE
 			IF @Mode = 1
@@ -383,7 +501,7 @@ BEGIN
 				from dbo.MonitoringParams AS mp
 				JOIN @pars as p ON p.MonitoringParamID = mp.MonitoringParamID
 				AND p.ParamValue != mp.ParamValue 
-				WHERE mp.MonitoringID = @MonitoringID	
+				WHERE mp.MonitoringID = @MonitoringID AND p.ParamTypeID IN (0,1);				
 			END
 			ELSE					 
 			IF @Mode = 2
@@ -395,14 +513,17 @@ BEGIN
 				DELETE FROM dbo.Monitorings			
 				WHERE 	
 				MonitoringID		= @MonitoringID				
-			END						
-			COMMIT			
+			END
+			
+			COMMIT
+			RETURN 0			
 	END TRY
 	BEGIN CATCH
 		IF @@TRANCOUNT != 0 
 			ROLLBACK;
 		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
 		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
+		RETURN 1
 	END CATCH	  
 END
 GO
