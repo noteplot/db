@@ -19,6 +19,18 @@ GO
 ALTER TABLE [dbo].[Logins] ADD  CONSTRAINT [DF_Logins_ShowScreenName]  DEFAULT ((0)) FOR [ShowScreenName]
 GO
 
+CREATE UNIQUE NONCLUSTERED INDEX [IU_Logins_LoginName] ON [dbo].[Logins]
+(
+	[LoginName]
+)
+GO
+
+CREATE UNIQUE NONCLUSTERED INDEX [IU_Logins_Email] ON [dbo].[Logins]
+(
+	[Email]
+)
+GO
+
 INSERT INTO dbo.Logins(
 	LoginRoleID,
 	LoginName,
