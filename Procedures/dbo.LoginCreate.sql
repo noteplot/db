@@ -15,42 +15,58 @@ ALTER PROCEDURE [dbo].[LoginCreate]
 @LoginRoleID	INT = NULL,
 @ScreenName		NVARCHAR(64) = NULL,
 @ShowScreenName BIT = 0,
-@LoginID		INT OUTPUT
+@LoginID		BIGINT OUTPUT
 AS
 BEGIN
 	SET NOCOUNT ON;
+	DECLARE
+		@IsConfirmed BIT;
+				
 	BEGIN TRY
-		IF EXISTS (SELECT 1 FROM dbo.Logins WHERE LoginName = @LoginName)
-		BEGIN
-			RAISERROR('Такой логин уже существует!',16,1)
-		END
+		BEGIN TRAN
+			SELECT @LoginID = LoginID, @IsConfirmed = IsConfirmed FROM dbo.Logins (updlock) WHERE LoginName = @LoginName			
+			IF @@ROWCOUNT != 0
+			BEGIN  
+				IF @IsConfirmed = 1	-- логин подтвержден, если нет обновляем данные регистрации
+					RAISERROR('Такой логин уже существует!',16,1); 
+			END
 		
 		IF @Email IS NULL 
-		SET @Email = @LoginName
+			SET @Email = @LoginName
 		
 		if @LoginRoleID is null
 		set @LoginRoleID = 3
-
-		BEGIN TRAN
-		
-			INSERT INTO dbo.Logins
-			(
-				LoginRoleID,
-				LoginName,
-				[Password],
-				Email,
-				ScreenName,
-				ShowScreenName
-			)
-			VALUES(
-				@LoginRoleID,
-				@LoginName,
-				@Password,
-				@Email,
-				@ScreenName,
-				@ShowScreenName				
-				)			
-				set @LoginID = SCOPE_IDENTITY();
+			IF @LoginID IS NULL
+			BEGIN				
+				INSERT INTO dbo.Logins
+				(
+					LoginRoleID,
+					LoginName,
+					[Password],
+					Email,
+					ScreenName,
+					ShowScreenName
+				)
+				VALUES(
+					@LoginRoleID,
+					@LoginName,
+					@Password,
+					@Email,
+					@ScreenName,
+					@ShowScreenName				
+					)			
+					set @LoginID = SCOPE_IDENTITY();
+			END
+			ELSE	-- обновление данных регистрации
+				UPDATE dbo.Logins
+					SET 
+					LoginName		= @LoginName,		
+					[Password]		= @Password,		
+					Email			= @Email,			
+					LoginRoleID		= @LoginRoleID,	
+					ScreenName		= @ScreenName,		
+					ShowScreenName	= @ShowScreenName
+				WHERE LoginID = @LoginID									
 		COMMIT
 	END TRY
 	BEGIN CATCH
