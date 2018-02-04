@@ -3,7 +3,7 @@ CREATE TABLE dbo.UnitGroups
 	UnitGroupID          bigint IDENTITY ( 1,1 ) ,
 	UnitGroupShortName   nvarchar(24)  NOT NULL ,
 	UnitGroupName        nvarchar(48)  NOT NULL ,
-	LoginID              bigint  NULL ,
+	LoginID              bigint  NOT NULL ,
 	CONSTRAINT PK_UnitGroups PRIMARY KEY  CLUSTERED (UnitGroupID ASC),
 	CONSTRAINT FK_UnitGroups_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
 )
