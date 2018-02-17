@@ -80,9 +80,9 @@ BEGIN
 					RAISERROR('Ед.измерения используется в параметрах!',16,5);
 				END	
 				
-				DELETE FROM dbo.UnitGroups	-- AFTER trigger
+				DELETE FROM dbo.Units	-- AFTER trigger
 				WHERE 	
-					 UnitGroupID = @UnitGroupID
+					 UnitID = @UnitID
 					 AND LoginID = @LoginID
 			END
 			COMMIT			
