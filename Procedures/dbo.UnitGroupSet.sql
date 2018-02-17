@@ -62,14 +62,15 @@ BEGIN
 					UnitGroupShortName = @UnitGroupShortName,
 					UnitGroupName = @UnitGroupName
 				WHERE
-					UnitGroupID			= @UnitGroupID 
+					UnitGroupID	= @UnitGroupID
+					AND LoginID = @LoginID 
 			END
 			ELSE					 
 			IF @Mode = 2
 			BEGIN
 				IF EXISTS(
 					SELECT 1 FROM dbo.Units AS u
-					WHERE u.UnitGroupID = @UnitGroupID AND u.LoginID IN (0,@LoginID) 
+					WHERE u.UnitGroupID = @UnitGroupID AND u.LoginID = @LoginID 
 				)
 				BEGIN
 					RAISERROR('Группа используется в ед.измерения!',16,5);
