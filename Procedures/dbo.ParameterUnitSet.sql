@@ -57,7 +57,7 @@ BEGIN
 			BEGIN
 				IF @UnitID IS NULL
 					RAISERROR('Ед. измерения не установлена!',16,3);
-				IF EXISTS(SELECT 1 FROM dbo.Units WHERE UnitShortName = @UnitShortName AND LoginID = @LoginID)
+				IF EXISTS(SELECT 1 FROM dbo.Units WHERE UnitID != @UnitID and UnitShortName = @UnitShortName AND LoginID = @LoginID)
 					RAISERROR('Уже есть ед. измерения с таким кратким названием!',16,4);				
 
 				UPDATE dbo.Units
