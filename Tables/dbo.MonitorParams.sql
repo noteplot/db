@@ -22,3 +22,9 @@ ALTER TABLE dbo.MonitorParams
 		 DEFAULT  1 FOR Active
 go
 
+CREATE NONCLUSTERED INDEX [IX_MonitorParams_MonitorID] ON [dbo].[MonitorParams]
+(
+	[MonitorID] ASC
+)
+GO
+
