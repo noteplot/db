@@ -67,15 +67,6 @@ BEGIN
 	
 	IF @DebugMode = 1
 		SELECT @sql
-	
-	-- столбцы
-	SELECT	 
-	'Время измерения' AS ColumnName
-	UNION ALL 	
-	SELECT	 
-	m.ParameterShortName+' ('+m.ParameterUnitShortName+')' AS ColumnName
-	from dbo.fnMonitorParamsGet(@MonitorID,@LoginID,@Active) AS m 
-	
-	-- значения
+
 	exec SP_EXECUTESQL @sql
 END
