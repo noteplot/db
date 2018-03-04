@@ -10,11 +10,11 @@ IF OBJECT_ID('[dbo].[ReportMonitorDataGet]', 'P') is null
 GO
 
 ALTER PROCEDURE dbo.ReportMonitorDataGet
-@MonitorID	BIGINT = null,
+@MonitorID	BIGINT,
+@LoginID	BIGINT,
 @DateBegin	DATE = NULL,
 @DateEnd	DATE = NULL,
 @Mode		TINYINT = 0, -- 0 - все параметры монитора 1 - только активные
-@LoginID	BIGINT,
 @DebugMode  TINYINT = 0 
 AS
 BEGIN
@@ -67,5 +67,15 @@ BEGIN
 	
 	IF @DebugMode = 1
 		SELECT @sql
+	
+	-- столбцы
+	SELECT	 
+	'Время измерения' AS ColumnName
+	UNION ALL 	
+	SELECT	 
+	m.ParameterShortName+' ('+m.ParameterUnitShortName+')' AS ColumnName
+	from dbo.fnMonitorParamsGet(@MonitorID,@LoginID,@Active) AS m 
+	
+	-- значения
 	exec SP_EXECUTESQL @sql
 END
