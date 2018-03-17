@@ -27,10 +27,9 @@ RETURN
 	PacketParamPosition = 0,
 	p.ParameterID,
 	m.LoginID,
-	p.[Active]
+	[Active] = IIF(mp.[Active] = 0, 0, p.[Active])
 	FROM dbo.Monitors AS m
 	JOIN  dbo.MonitorParams AS mp ON mp.MonitorID = m.MonitorID
-	AND mp.[Active] = 1
 	JOIN dbo.Parameters AS p ON p.ParameterID = mp.ParameterID AND p.ParameterKindID = 0		 
 	UNION ALL
 	SELECT
@@ -40,18 +39,15 @@ RETURN
 	pp.PacketParamPosition, 
 	p1.ParameterID,
 	m.LoginID,
-	active = CASE WHEN p1.[Active] = 0 THEN p1.[Active]
+	active = IIF(mp.[Active] = 0, 0, CASE WHEN p1.[Active] = 0 THEN p1.[Active]
 				ELSE p.[Active]
-			END
+			END)
 	FROM dbo.Monitors AS m		
 	JOIN  dbo.MonitorParams AS mp ON mp.MonitorID = m.MonitorID
-	AND mp.[Active] = 1
 	JOIN dbo.Parameters AS p ON p.ParameterID = mp.ParameterID AND p.ParameterKindID = 1 
-	--AND p.[Active] = 1
 	JOIN dbo.Packets AS pt ON pt.PacketID = mp.ParameterID
 	JOIN dbo.PacketParams AS pp ON pp.PacketID = pt.PacketID
 	JOIN dbo.Parameters AS p1 ON p1.ParameterID = pp.ParamID AND p1.ParameterKindID = 0 
-	--AND p1.[Active] = 1
 	)
 		
 	SELECT
