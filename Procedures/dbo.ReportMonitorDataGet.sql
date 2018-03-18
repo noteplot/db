@@ -33,7 +33,7 @@ BEGIN
 			(
 				select 
 					',' +'['+ m.ParameterShortName+' ('+m.ParameterUnitShortName+')'+']'
-				from dbo.fnMonitorParamsGet(@MonitorID,@LoginID,@Active) as m 
+				from dbo.fnMonitorParamsGet(@MonitorID,NULL,@LoginID,@Active) as m 
 				FOR XML PATH('')
 			)
 		,1,1,'')
@@ -45,7 +45,7 @@ BEGIN
 		convert(varchar(20),m.[MonitoringDate],104) as [MonitoringDate], p.ParameterShortName+'' (''+p.ParameterUnitShortName+'')'' as ParameterName, mp.ParamValue as ParamValue 	
 		FROM dbo.Monitorings as m
 		JOIN dbo.MonitoringParams AS mp ON mp.MonitoringID = m.MonitoringID
-		join dbo.fnMonitorParamsGet(@MonitorID,@LoginID,@Active) as p on p.ParameterID = mp.ParamID
+		join dbo.fnMonitorParamsGet(@MonitorID,NULL,@LoginID,@Active) as p on p.ParameterID = mp.ParamID
 	 where
 	 m.MonitorID = @MonitorID AND 
 	 m.[MonitoringDate] between ''@DateBegin'' and ''@DateEnd''    

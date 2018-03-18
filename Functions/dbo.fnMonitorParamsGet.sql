@@ -12,6 +12,7 @@ go
 ALTER FUNCTION [dbo].[fnMonitorParamsGet]
 ( 
  @MonitorID BIGINT,
+ @ParameterID BIGINT = NULL,
  @LoginID BIGINT,
  @Active TINYINT = NULL
 )
@@ -54,6 +55,7 @@ RETURN
 		par.MonitorID,
 		par.MonitorParamID,
 		par.ParameterID,
+		m.MonitorShortName,
 		p.ParamShortName AS ParameterShortName,
 		p.ParamName AS ParameterName,
 		p.ParamTypeID AS ParameterTypeID,
@@ -73,7 +75,8 @@ RETURN
 	JOIN dbo.Params AS p ON p.ParamID = par.ParameterID AND p.ParamTypeID IN (0,1)
 	JOIN dbo.Units AS u ON u.UnitID = p.ParamUnitID
 	JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID
-	WHERE par.MonitorID = @MonitorID AND par.LoginID IN (0,@LoginID)
+	JOIN dbo.Monitors AS m ON m.MonitorID = par.MonitorID
+	WHERE par.MonitorID = @MonitorID AND par.ParameterID = ISNULL(@ParameterID,par.ParameterID) AND  par.LoginID IN (0,@LoginID)
 	AND par.[Active] = ISNULL(@Active,par.[Active])		
 	--ORDER BY par.MonitorParamPosition,par.PacketParamPosition		
 )	

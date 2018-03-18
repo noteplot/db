@@ -14,15 +14,16 @@ ALTER PROCEDURE dbo.ReportMonitorParamsGet
 AS
 BEGIN
 	SET NOCOUNT ON;
-	SELECT 
-		p.MonitorParamID,
-		p.ParameterShortName AS ParamShortName,
+	SELECT 		
+		m.MonitorID,
 		m.MonitorShortName,
+		p.ParameterID AS ParamID,
+		p.ParameterShortName AS ParamShortName,
 		p.ParameterUnitShortName AS UnitShortName,
 		[Active] = IIF(m.[Active] = 0, 0, p.[Active]),
 		@LoginID AS LoginID  
 	FROM dbo.Monitors AS m
-	cross apply dbo.[fnMonitorParamsGet](m.MonitorID,@LoginID,@Active) AS p	
+	cross apply dbo.[fnMonitorParamsGet](m.MonitorID,NULL,@LoginID,@Active) AS p	
 	WHERE m.LoginID IN (0,@LoginID)
 	AND m.[Active] = ISNULL(@Active,m.[Active])
 		
