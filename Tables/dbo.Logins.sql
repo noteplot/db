@@ -8,7 +8,7 @@ CREATE TABLE dbo.Logins
 	IsConfirmed         bit  NOT NULL ,
 	ScreenName			nvarchar(64) NULL ,
 	ShowScreenName		BIT  NOT NULL,
-	LoginView			AS (case when[ShowScreenName]= (0) OR [ScreenName] IS NULL then [LoginName] else [ScreenName] end) PERSISTED,	
+	LoginView			AS (case when isnull(patindex('%[^ ]%',[ScreenName]),(0))>(0) AND [ShowScreenName]=(1) then [ScreenName] else [LoginName] end) PERSISTED,	
 	CONSTRAINT PK_Logins PRIMARY KEY  CLUSTERED (LoginID ASC),
 	CONSTRAINT FK_Logins_LoginRoles FOREIGN KEY (LoginRoleID) REFERENCES dbo.LoginRoles(LoginRoleID)
 )
