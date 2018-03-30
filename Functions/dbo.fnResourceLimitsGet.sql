@@ -8,7 +8,7 @@ GO
 -- Create date: 25.03.2018
 -- Description:	Функция получения лимитов
 -- =============================================
-ALTER FUNCTION fnResourceLimitsGet 
+ALTER FUNCTION dbo.fnResourceLimitsGet 
 (
 	@RoleID INT = NULL,
 	@LoginID BIGINT = NULL 
