@@ -1,10 +1,22 @@
+set quoted_identifier, ansi_nulls on
+go
+/*
 -- =============================================
 -- Author:		[ab]
 -- Create date: 20170813
 -- Description:	Создание/редактирование/удаление параметра
+-- @ParameterRelations - xml список связанных параметров
+--	<ParameterRelations>
+--	  <ParameterRelation>
+--		<ParameterID>4</ParameterID>
+--		<MathOperationID>1</MathOperationID>
+--	  </ParameterRelation>
+--	  ....................
+--	</ParameterRelations>'
+
 -- @Mode:		0 - создание 1- изменение 2 - удаление       
 -- =============================================
-
+*/
 IF OBJECT_ID('[dbo].[ParameterSet]', 'P') is null
  EXEC('create procedure [dbo].[ParameterSet] as begin return -1 end')
 GO
@@ -21,7 +33,8 @@ ALTER PROCEDURE dbo.ParameterSet
 	@ParamValueMIN		DECIMAL(28,6) = NULL,
 	@LoginID			BIGINT,
 	@Active				BIT = 1,
-	@JSON				VARCHAR(MAX) = NULL,			
+--	@JSON				VARCHAR(MAX) = NULL,
+	@ParameterRelations	XML = NULL, 			
 	@Mode				TINYINT	
 AS
 BEGIN
@@ -41,10 +54,10 @@ BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
 		BEGIN TRAN
-			IF @Mode in (0,1) and @ParamTypeID IN (1,2) AND @JSON IS NULL 
+			IF @Mode in (0,1) and @ParamTypeID IN (1,2) AND /*@JSON*/@ParameterRelations IS NULL 
 				RAISERROR('Должен быть указан хотя бы один связанный параметр для вычисления значения!',16,2);
 			-- изменение типа параметра	
-			IF @Mode = 1 AND @ParamTypeID = 0 AND (EXISTS(SELECT 1 FROM dbo.Params AS p WHERE p.ParamID = @ParameterID AND p.ParamTypeID != @ParamTypeID))
+			IF @Mode = 1 AND @ParamTypeID = 0 AND (EXISTS(SELECT 1 FROM dbo.Params AS p (updlock) WHERE p.ParamID = @ParameterID AND p.ParamTypeID != @ParamTypeID))
 			BEGIN
 				-- удаляем связанные параметры
 				DELETE FROM dbo.ParamRelations
@@ -53,7 +66,7 @@ BEGIN
 			
 			IF @Mode = 0 
 			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
+				IF EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
 					RAISERROR('Уже есть параметр с таким названием!',16,3);				
 				
 				INSERT INTO dbo.Parameters(ParameterKindID,ParameterGroupID)
@@ -124,7 +137,7 @@ BEGIN
 					 ParamID = @ParameterID
 					 AND LoginID = @LoginID
 			
-			IF @Mode IN (0,1) AND @JSON IS NOT NULL 
+			IF @Mode IN (0,1) AND /*@JSON*/@ParameterRelations IS NOT NULL 
 			BEGIN
 				declare
 					@rls table (
@@ -132,6 +145,14 @@ BEGIN
 						ParameterID BIGINT NOT NULL,
 						MathOperationID INT  NOT NULL
 					)
+					INSERT INTO @rls(ParameterID, MathOperationID)	
+					select 
+						c.value('ParameterID[1]','bigint') AS ParameterID,
+						c.value('MathOperationID[1]','bigint') AS MathOperationID
+					from 
+						@ParameterRelations.nodes('/ParameterRelations/ParameterRelation') t(c)
+					
+				/*					
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
 
@@ -169,7 +190,10 @@ BEGIN
 				
 				IF @id = 0
 					RAISERROR('Должен быть указан хотя бы один связанный параметр!',16,9);
-
+				*/
+				IF @@ROWCOUNT = 0
+					RAISERROR('Должен быть указан хотя бы один связанный параметр!',16,9);
+				
 				IF EXISTS(
 						SELECT 1 
 						FROM @rls AS r
@@ -191,14 +215,14 @@ BEGIN
 				HAVING(COUNT(1) > 1)
 				)
 					RAISERROR('Связанные параметры не должны дублироваться!',16,12);
-				
+			
 				MERGE dbo.ParamRelations AS t
 				USING (SELECT ParameterID AS [SecondaryParamID], MathOperationID, ParamRelationPosition
 				       FROM @rls) AS s 
 				ON (t.PrimaryParamID = @ParameterID AND t.SecondaryParamID = s.SecondaryParamID)
 				WHEN NOT MATCHED THEN
-					INSERT (PrimaryParamID, SecondaryParamID,MathOperationID)
-					VALUES (@ParameterID, s.SecondaryParamID,s.MathOperationID)
+					INSERT (PrimaryParamID, SecondaryParamID,MathOperationID,ParamRelationPosition)
+					VALUES (@ParameterID, s.SecondaryParamID,s.MathOperationID,s.ParamRelationPosition)
 				WHEN MATCHED THEN
 					UPDATE 
 						SET ParamRelationPosition = s.ParamRelationPosition					
