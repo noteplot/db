@@ -209,10 +209,9 @@ BEGIN
 				)								
 					RAISERROR('—в€занные параметры должны быть простого типа!',16,11);					
 */										
-				if exists(SELECT top 1 1
-				FROM @rls 
-				GROUP BY ParameterID
-				HAVING(COUNT(1) > 1)
+				if exists(
+					SELECT 1 FROM @rls GROUP BY ParameterID
+					HAVING(COUNT(1) > 1)
 				)
 					RAISERROR('—в€занные параметры не должны дублироватьс€!',16,12);
 			
