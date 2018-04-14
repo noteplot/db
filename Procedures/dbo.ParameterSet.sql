@@ -148,7 +148,7 @@ BEGIN
 					INSERT INTO @rls(ParameterID, MathOperationID)	
 					select 
 						c.value('ParameterID[1]','bigint') AS ParameterID,
-						c.value('MathOperationID[1]','bigint') AS MathOperationID
+						c.value('MathOperationID[1]','tinyint') AS MathOperationID
 					from 
 						@ParameterRelations.nodes('/ParameterRelations/ParameterRelation') t(c)
 					

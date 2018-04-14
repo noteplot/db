@@ -1,10 +1,22 @@
+set quoted_identifier, ansi_nulls on
+go
+/*
 -- =============================================
 -- Author:		[ab]
 -- Create date: 20171028
 -- Description:	—оздание/редактирование/удаление пакета
--- @Mode:		0 - создание 1- изменение 2 - удаление       
--- =============================================
+   @PacketParameters - xml список св€занных параметров:
+	<PacketParameters>
+	  <PacketParameter>
+		<ParameterID>4</ParameterID>
+		<PacketParameterActive>1</PacketParameterActive>
+	  </PacketParameter>
+	  ....................
+	</PacketParameters>'
 
+   @Mode:		0 - создание 1- изменение 2 - удаление       
+-- =============================================
+*/
 IF OBJECT_ID('[dbo].[PacketSet]', 'P') is null
  EXEC('create procedure [dbo].[PacketSet] as begin return -1 end')
 GO
@@ -16,7 +28,8 @@ ALTER PROCEDURE dbo.PacketSet
 	@ParameterGroupID	BIGINT,
 	@LoginID			BIGINT,
 	@Active				BIT = 1,
-	@JSON				VARCHAR(MAX) = NULL,			
+	@PacketParameters	XML = NULL,
+	--@JSON				VARCHAR(MAX) = NULL,			
 	@Mode				TINYINT	
 AS
 BEGIN
@@ -24,10 +37,10 @@ BEGIN
 	DECLARE 
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
-		@ErrorState INT,	   		
-		@lParameter int = LEN('"ParameterID":"'),
-		@lPacketParameterActive int = LEN('"PacketParameterActive":"'),
-		@rParameterID BIGINT,@rPacketParameterActive BIT
+		@ErrorState INT	   		
+		--@lParameter int = LEN('"ParameterID":"'),
+		--@lPacketParameterActive int = LEN('"PacketParameterActive":"'),
+		--@rParameterID BIGINT,@rPacketParameterActive BIT
 		
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -35,7 +48,7 @@ BEGIN
 			RAISERROR('Ќекорректное значение параметра @Mode',16,1);	
 		END
 		BEGIN TRAN
-			IF @Mode in (0,1) and @JSON IS NULL 
+			IF @Mode in (0,1) and /*@JSON*/@PacketParameters IS NULL 
 				RAISERROR('ƒолжен быть указан хот€ бы один параметр!',16,2);
 			
 			IF @Mode = 0 
@@ -92,7 +105,7 @@ BEGIN
 					 PacketID = @PacketID AND 
 					 LoginID = @LoginID
 			
-			IF @Mode IN (0,1) AND @JSON IS NOT NULL 
+			IF @Mode IN (0,1) AND /*@JSON*/@PacketParameters IS NOT NULL 
 			BEGIN
 				declare
 					@rls table (
@@ -100,6 +113,14 @@ BEGIN
 						ParameterID bigint NOT NULL,
 						Active BIT NOT NULL
 					)
+					
+					INSERT INTO @rls(ParameterID, Active)	
+					select 
+						c.value('ParameterID[1]','bigint') AS ParameterID,
+						c.value('PacketParameterActive[1]','bit') AS Active
+					from 
+						@PacketParameters.nodes('/PacketParameters/PacketParameter') t(c)					
+				/*	
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
 
@@ -137,11 +158,15 @@ BEGIN
 				
 				IF @id = 0
 					RAISERROR('ƒолжен быть указан хот€ бы один параметр!',16,9);
+				*/
+									
+				IF @@ROWCOUNT = 0
+					RAISERROR('ƒолжен быть указан хот€ бы один параметр!',16,9);
 														
-				if exists(SELECT top 1 1
-				FROM @rls 
-				GROUP BY ParameterID
-				HAVING(COUNT(1) > 1)
+				if exists(SELECT 1
+					FROM @rls 
+					GROUP BY ParameterID
+					HAVING(COUNT(1) > 1)
 				)
 					RAISERROR('ѕараметры не должны дублироватьс€!',16,12);
 				
