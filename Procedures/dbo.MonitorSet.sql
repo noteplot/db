@@ -1,13 +1,22 @@
 set quoted_identifier, ansi_nulls on
-go
+GO
 
+/*
 -- =============================================
 -- Author:		[ab]
 -- Create date: 20171119
 -- Description:	Создание/редактирование/удаление монитора
+   @MonitorParameters - xml список связанных параметров:
+	<MonitorParameters>
+	  <MonitorParameter>
+		<ParameterID>45</ParameterID>
+		<MonitorParameterActive>true</MonitorParameterActive>
+	  </MonitorParameter>
+	  ...........
+	</MonitorParameters>
 -- @Mode:		0 - создание 1- изменение
 -- =============================================
-
+*/
 IF OBJECT_ID('[dbo].[MonitorSet]', 'P') is null
  EXEC('create procedure [dbo].[MonitorSet] as begin return -1 end')
 GO
