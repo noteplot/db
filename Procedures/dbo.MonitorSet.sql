@@ -1,3 +1,6 @@
+set quoted_identifier, ansi_nulls on
+go
+
 -- =============================================
 -- Author:		[ab]
 -- Create date: 20171119
@@ -15,7 +18,8 @@ ALTER PROCEDURE dbo.MonitorSet
 	@MonitorName		NVARCHAR(48),
 	@LoginID			BIGINT,
 	@Active				BIT = 1,
-	@JSON				VARCHAR(MAX) = NULL,			
+	@MonitorParameters	XML = NULL,
+	--@JSON				VARCHAR(MAX) = NULL,				
 	@Mode				TINYINT	
 AS
 BEGIN
@@ -23,14 +27,14 @@ BEGIN
 	DECLARE 
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
-		@ErrorState INT,	   		
-		@lParameter int = LEN('"ParameterID":"'),
-		@lMonitorParameterValue int = LEN('"MonitorParameterValue":"'),
-		@lMonitorParameterActive int = LEN('"MonitorParameterActive":"'),
-		@rParameterID BIGINT,
-		@rMonitorParameterValue DECIMAL(28,6), 
-		@rMonitorParameterActive BIT,
-		@comma char(1) = ',',@point char(1) = '.';
+		@ErrorState INT	   		
+		--@lParameter int = LEN('"ParameterID":"'),
+		--@lMonitorParameterValue int = LEN('"MonitorParameterValue":"'),
+		--@lMonitorParameterActive int = LEN('"MonitorParameterActive":"'),
+		--@rParameterID BIGINT,
+		--@rMonitorParameterValue DECIMAL(28,6), 
+		--@rMonitorParameterActive BIT,
+		--@comma char(1) = ',',@point char(1) = '.';
 	DECLARE				
 		@ParamID BIGINT,
 		@CalcParamName NVARCHAR(255),
@@ -43,7 +47,7 @@ BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
 		BEGIN TRAN
-			IF @Mode in (0,1) and @JSON IS NULL 
+			IF @Mode in (0,1) and /*@JSON*/@MonitorParameters IS NULL 
 				RAISERROR('Должен быть указан хотя бы один параметр!',16,2);
 			
 			IF @Mode = 0 
@@ -86,7 +90,7 @@ BEGIN
 					AND LoginID	= @LoginID 				
 			END
 				
-			IF @Mode IN (0,1) AND @JSON IS NOT NULL 
+			IF @Mode IN (0,1) AND /*@JSON*/@MonitorParameters IS NOT NULL 
 			BEGIN
 				declare
 					@par table (
@@ -95,6 +99,20 @@ BEGIN
 						MonitorParameterValue DECIMAL(28,6) NULL,
 						Active BIT NOT NULL
 					)
+					INSERT INTO @par(ParameterID, MonitorParameterValue, Active)	
+					select 
+						c.value('ParameterID[1]','bigint') AS ParameterID,
+						IIF(p.ParamID IS NULL, NULL, c.value('MonitorParameterValue[1]','DECIMAL(28,6)')) AS MonitorParameterValue,
+						c.value('MonitorParameterActive[1]','bit') AS Active
+					from 
+						@MonitorParameters.nodes('/MonitorParameters/MonitorParameter') t(c)
+					LEFT JOIN dbo.Params AS p ON p.ParamID = c.value('ParameterID[1]','bigint')
+					AND p.ParamTypeID = 2 -- параметр монитора 											
+					
+				IF @@ROWCOUNT = 0	
+					RAISERROR('Должен быть указан хотя бы один параметр!',16,11);
+					
+				/*	
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
 
@@ -149,6 +167,8 @@ BEGIN
 	
 				IF @id = 0
 					RAISERROR('Должен быть указан хотя бы один параметр!',16,11);
+				*/
+				
 /*														
 				if exists(SELECT top 1 1
 				FROM @par 
@@ -157,7 +177,7 @@ BEGIN
 				)
 					RAISERROR('Параметры не должны дублироваться!',16,12);
 */				
-				-- Список всех параметров монитора(вклюяая пакеты)
+				-- Список всех параметров монитора(включая пакеты)
 				DECLARE @pm TABLE (
 					ParamID BIGINT NOT NULL,
 					ParamName NVARCHAR(255) NOT NULL,

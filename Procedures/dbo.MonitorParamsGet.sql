@@ -1,3 +1,6 @@
+set quoted_identifier, ansi_nulls on
+go
+
 -- ============================================================
 -- Author:		[ab]
 -- Create date: 20171118
@@ -25,7 +28,8 @@ BEGIN
 
 		mp.MonitorParamPosition		AS MonitorParamPosition,		
 		pv.MonitorParamValue		AS MonitorParameterValue,			
-		mp.[Active]					AS MonitorParameterActive 
+		mp.[Active]					AS MonitorParameterActive,
+		mp.MonitorParamPosition		AS MonitorParamPosition	 
 	FROM dbo.Monitors AS m
 	JOIN dbo.MonitorParams AS mp ON mp.MonitorID = m.MonitorID
 	JOIN dbo.Parameters AS p ON p.ParameterID = mp.ParameterID
