@@ -1,12 +1,23 @@
+set quoted_identifier, ansi_nulls on
+GO
+
+/*
 -- =============================================
 -- Author:		[ab]
 -- Create date: 20171224
 -- Description:	Создание/редактирование/удаление измерения
--- JSON - последовательность полей в записи: 
--- MonitoringParamID,MonitorParamID,ParameterID,ParameterTypeID,ParameterValue
+--  @MonitoringParams - xml список связанных параметров:
+	<MonitoringParams>
+	  <MonitoringParam>
+		<ParameterID>45</ParamID>
+		
+	  </MonitoringParam>
+	  ...........
+	</MonitoringParams>
+	(MonitoringParamID,MonitorParamID,ParameterID,ParameterTypeID,ParameterValue)
 -- @Mode:		0 - создание 1- изменение 2 - удаление       
 -- =============================================
-
+*/
 IF OBJECT_ID('[dbo].[MonitoringSet]', 'P') is null
  EXEC('create procedure [dbo].[MonitoringSet] as begin return -1 end')
 GO
@@ -16,7 +27,8 @@ ALTER PROCEDURE dbo.MonitoringSet
 	@MonitorID			BIGINT = NULL,
 	@MonitoringDate		DATETIME2(0) = NULL,
 	@MonitoringComment	NVARCHAR(255) = NULL,
-	@JSON				VARCHAR(MAX) = NULL,			
+	@MonitoringParams	XML = NULL,
+	--@JSON				VARCHAR(MAX) = NULL,			
 	@Mode				TINYINT
 AS
 BEGIN
@@ -84,7 +96,8 @@ BEGIN
 				IF @MonitoringDate IS NULL	 
 					RAISERROR('Не установлено время измерения',16,4);
 					
-				IF @JSON IS NULL
+				--IF @JSON IS NULL
+				IF @MonitoringParams IS NULL
 					RAISERROR('Нет списка параметров измерения',16,5);
 					
 				IF EXISTS(SELECT 1 FROM dbo.Monitorings WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
@@ -104,6 +117,9 @@ BEGIN
 			
 			IF @Mode IN (0,1) 
 			BEGIN
+				DECLARE
+					@id int = 1
+					
 				declare
 					@parc table (
 						ID INT IDENTITY(1,1) PRIMARY KEY,
@@ -133,7 +149,34 @@ BEGIN
 						MathOperationID TINYINT NOT NULL,
 						Scale TINYINT NOT NULL
 				)
-					
+								
+				INSERT INTO @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID,OldParamValue)	
+				select 
+					c.value('MonitoringParamID[1]','bigint')		AS MonitoringParamID,
+					c.value('MonitorParamID[1]','bigint')			AS MonitorParamID,
+					c.value('ParameterID[1]','bigint')				AS ParamID,
+					c.value('ParameterValue[1]','DECIMAL(28,6)')	AS ParamValue,
+					c.value('ParameterTypeID[1]','int')				AS ParamTypeID,												
+					mp.ParamValue									AS OldParamValue
+				FROM @MonitoringParams.nodes('/MonitoringParams/MonitoringParam') t(c) 
+				left join dbo.MonitoringParams AS mp on mp.MonitoringParamID = c.value('MonitoringParamID[1]','bigint') 
+				
+				IF @@ROWCOUNT = 0
+					RAISERROR('Нет данных измерения!',16,6);						
+						
+				INSERT INTO @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
+				select 
+					ps.MonitoringParamID,
+					ps.MonitorParamID,
+					ps.ParamID,
+					ps.ParamValue,
+					pvt.Scale
+				FROM @pars AS ps						
+				JOIN dbo.Params AS p ON p.ParamID = ps.ParamID
+				JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID
+				WHERE ps.ParamTypeID = 1 -- вычисляемый параметр
+
+				/*	
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 1 
 
@@ -245,7 +288,8 @@ BEGIN
 						SET @rc += 1;
 					END
 					set @id += 1
-				END				
+				END	
+				*/			
 			END
 			ELSE
 				BEGIN -- удаление
