@@ -537,7 +537,7 @@ BEGIN
 					MonitoringComment = @MonitoringComment				
 				WHERE
 					MonitoringID = @MonitoringID
-					AND  (MonitoringDate != @MonitoringDate OR MonitoringComment != @MonitoringComment)
+					AND  (MonitoringDate != @MonitoringDate OR IsNull(MonitoringComment,'') != IsNull(@MonitoringComment,''))
 					
 				UPDATE mp
 				SET

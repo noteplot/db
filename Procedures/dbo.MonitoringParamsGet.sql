@@ -57,17 +57,20 @@ BEGIN
 			p.ParamShortName AS ParameterShortName,
 			p.ParamName AS ParameterName,
 			p.ParamTypeID AS ParameterTypeID,
+			pt.ParamTypeName AS ParameterTypeName,
 			p.ParamValueMAX AS ParameterValueMax,
 			p.ParamValueMIN AS ParameterValueMin,
 			u.UnitID AS ParameterUnitID,
 			u.UnitShortName AS ParameterUnitShortName,
 			p.ParamValueTypeID,
+			pvt.ParamValueTypeShortName AS ParameterValueTypeShortName,
 			pvt.Scale AS ParameterScale,
 			pvt.[Precision] AS ParameterPrecision,
 			cast(null as datetime) as CreationDateUTC,
 			cast(null as datetime) as ModifiedDateUTC
 		FROM par
 		JOIN dbo.Params AS p ON p.ParamID = par.ParameterID AND p.ParamTypeID IN (0,1)
+		JOIN dbo.ParamTypes AS pt ON pt.ParamTypeID = p.ParamTypeID
 		JOIN dbo.Units AS u ON u.UnitID = p.ParamUnitID
 		JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID
 		ORDER BY par.MonitorParamPosition,par.PacketParamPosition				
@@ -83,17 +86,20 @@ BEGIN
 			p.ParamShortName AS ParameterShortName,
 			p.ParamName AS ParameterName,			
 			p.ParamTypeID AS ParameterTypeID,
+			pt.ParamTypeName AS ParameterTypeName,
 			p.ParamValueMAX AS ParameterValueMax,
 			p.ParamValueMIN AS ParameterValueMin,
 			u.UnitID AS ParameterUnitID,
 			u.UnitShortName AS ParameterUnitShortName,
 			p.ParamValueTypeID,
+			pvt.ParamValueTypeShortName AS ParameterValueTypeShortName,
 			pvt.Scale AS ParameterScale,
 			pvt.[Precision] AS ParameterPrecision,
 			mp.CreationDateUTC,
 			mp.ModifiedDateUTC
 		FROM dbo.MonitoringParams AS mp
 		JOIN dbo.Params AS p ON p.ParamID = mp.ParamID
+		JOIN dbo.ParamTypes AS pt ON pt.ParamTypeID = p.ParamTypeID
 		JOIN dbo.Units AS u ON u.UnitID = p.ParamUnitID
 		JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID				 
 		WHERE mp.MonitoringID = @MonitoringID
