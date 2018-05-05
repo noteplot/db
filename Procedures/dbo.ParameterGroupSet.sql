@@ -64,11 +64,18 @@ BEGIN
 				 AND LoginID = @LoginID
 		END				 
 		ELSE					 
-		IF @Mode = 2		 
+		IF @Mode = 2
+		BEGIN
+			IF EXISTS(SELECT 1 FROM dbo.Parameters AS p WHERE p.ParameterGroupID = @ParameterGroupID) 
+			BEGIN
+				RAISERROR('Данная группа используется в параметрах!',16,2);
+			END
+					 
 			DELETE FROM dbo.ParameterGroups
 			WHERE 	
 				 ParameterGroupID = @ParameterGroupID
 				 AND LoginID = @LoginID
+		end		 
 	END TRY
 	BEGIN CATCH
 		SET @ErrorMessage = ERROR_MESSAGE();				
