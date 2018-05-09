@@ -1,3 +1,6 @@
+set quoted_identifier, ansi_nulls on
+GO
+
 -- =============================================
 -- Author:		[ab]
 -- Create date: 27.01.2018
@@ -23,3 +26,4 @@ BEGIN
 			
 		
 END
+GO

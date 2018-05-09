@@ -1,3 +1,6 @@
+set quoted_identifier, ansi_nulls on
+GO
+
 -- =============================================
 -- Author:		[ab]
 -- Create date: 20180121
@@ -78,3 +81,4 @@ BEGIN
 	END CATCH
 	return 0
 END
+GO

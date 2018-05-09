@@ -1,3 +1,6 @@
+set quoted_identifier, ansi_nulls on
+GO
+
 -- =============================================
 -- Author:		[ab]
 -- Create date: 23.03.2018
@@ -23,3 +26,4 @@ BEGIN
 			ShowScreenName = @ShowScreenName 		 
 	where LoginID = @LoginID				
 END
+GO

@@ -1,3 +1,6 @@
+set quoted_identifier, ansi_nulls on
+GO
+
 -- ============================================================
 -- Author:		[ab]
 -- Create date: 20180225
@@ -59,4 +62,5 @@ BEGIN
 		JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID
 		JOIN dbo.MonitorTotalParamValues AS mtpv ON mtpv.MonitorParamID = par.MonitorParamID
 		ORDER BY par.MonitorParamPosition,par.PacketParamPosition			
-END;	
+END;
+GO

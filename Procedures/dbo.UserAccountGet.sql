@@ -1,3 +1,6 @@
+set quoted_identifier, ansi_nulls on
+GO
+
 -- =============================================
 -- Author:		[ab]
 -- Create date: 23.03.2018
@@ -26,3 +29,4 @@ BEGIN
 	JOIN dbo.LoginRoles as lr on lr.LoginRoleID = l.LoginRoleID 
 	WHERE LoginID = @LoginID 					
 END
+GO
