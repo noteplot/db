@@ -1,3 +1,7 @@
+SET ANSI_NULLS, ANSI_PADDING, ANSI_WARNINGS, ARITHABORT, QUOTED_IDENTIFIER, CONCAT_NULL_YIELDS_NULL ON
+SET NUMERIC_ROUNDABORT OFF
+GO
+
 CREATE TABLE dbo.MonitoringParams
 ( 
 	MonitoringParamID    bigint IDENTITY ( 1,1 ) ,
@@ -15,14 +19,10 @@ CREATE TABLE dbo.MonitoringParams
 go
 
 
-
 ALTER TABLE dbo.MonitoringParams
 	ADD CONSTRAINT DF_MonitoringParams_CreationDate
 		 DEFAULT  GETUTCDATE() FOR CreationDateUTC
 go
-
-
-
 
 ALTER TABLE dbo.MonitoringParams
 	ADD CONSTRAINT DF_MonitoringParams_ModifiedDate
