@@ -1,3 +1,5 @@
+set quoted_identifier, ansi_nulls ON
+GO
 -- ============================================================
 -- Author:		[ab]
 -- Create date: 20171221
@@ -5,7 +7,8 @@
 -- монитора, которые используются в мониторинге
 -- ============================================================
 
-if OBJECT_ID('dbo.fnMonitorParamsGet') is null
+--if OBJECT_ID('dbo.fnMonitorParamsGet') is NULL
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[fnMonitorParamsGet]') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
  exec('create function dbo.fnMonitorParamsGet(@MonitorID bigint, @LoginID bigint) RETURNS TABLE AS RETURN (select 1 as ''1'')')
 go
 

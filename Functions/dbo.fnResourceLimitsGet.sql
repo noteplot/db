@@ -1,5 +1,7 @@
-
-if OBJECT_ID('dbo.fnResourceLimitsGet') is null
+set quoted_identifier, ansi_nulls ON
+GO
+--if OBJECT_ID(N'dbo.fnResourceLimitsGet',N'FN') is NULL
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[fnResourceLimitsGet]') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
  exec('create function dbo.fnResourceLimitsGet(@RoleID bigint, @LoginID bigint) RETURNS TABLE AS RETURN (select 1 as ''1'')')
 GO
 
