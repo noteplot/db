@@ -14,8 +14,8 @@ GO
 
 ALTER PROCEDURE dbo.ParameterUnitSet 
 	@UnitID				BIGINT OUT,
-	@UnitShortName		NVARCHAR(16),
-	@UnitName			NVARCHAR(32),
+	@UnitShortName		NVARCHAR(24),
+	@UnitName			NVARCHAR(48),
 	@UnitGroupID		BIGINT, 
 	@LoginID			BIGINT,
 	@Mode				TINYINT	

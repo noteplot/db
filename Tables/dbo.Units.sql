@@ -5,8 +5,8 @@ GO
 CREATE TABLE dbo.Units
 ( 
 	UnitID               bigint IDENTITY ( 1,1 ) ,
-	UnitShortName        nvarchar(16)  NOT NULL ,
-	UnitName             nvarchar(32)  NOT NULL ,
+	UnitShortName        nvarchar(24)  NOT NULL ,
+	UnitName             nvarchar(48)  NOT NULL ,
 	UnitGroupID          bigint  NOT NULL ,
 	LoginID              bigint  NULL ,
 	CONSTRAINT PK_Units PRIMARY KEY  CLUSTERED (UnitID ASC),
