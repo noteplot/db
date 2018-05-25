@@ -46,7 +46,7 @@ BEGIN
 	
 	DECLARE @jpm table (
 		ID INT PRIMARY KEY,
-		JsonArray VARCHAR(max) NOT NULL	 
+		JsonArray VARCHAR(max) NULL	 
 	)
 	 
 	INSERT INTO @pm(ParamID, MonitorID,ParamShortName,MonitorShortName,UnitShortName)	
