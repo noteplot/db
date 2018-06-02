@@ -9,9 +9,15 @@ CREATE TABLE dbo.LoginRoleResourceLimits
 	ResourceLimitValue   integer  NOT NULL ,
 	CONSTRAINT PK_ResourceLimitRoles PRIMARY KEY  CLUSTERED (LoginRoleID ASC,ResourceLimitID ASC),
 	CONSTRAINT FK_ResourceLimitRoles_LoginRoles FOREIGN KEY (LoginRoleID) REFERENCES dbo.LoginRoles(LoginRoleID),
-CONSTRAINT FK_LoginRoleResourceLimits_ResourceLimits FOREIGN KEY (ResourceLimitID) REFERENCES dbo.ResourceLimits(ResourceLimitID)
+	CONSTRAINT FK_LoginRoleResourceLimits_ResourceLimits FOREIGN KEY (ResourceLimitID) REFERENCES dbo.ResourceLimits(ResourceLimitID)
 )
-go
+GO
+
+ALTER TABLE [dbo].[LoginRoleResourceLimits] CHECK CONSTRAINT [FK_ResourceLimitRoles_LoginRoles]
+GO
+ALTER TABLE [dbo].[LoginRoleResourceLimits] CHECK CONSTRAINT [FK_LoginRoleResourceLimits_ResourceLimits]
+GO
+
 
 INSERT INTO dbo.LoginRoleResourceLimits(
 	LoginRoleID,          

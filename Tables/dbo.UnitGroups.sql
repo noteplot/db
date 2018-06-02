@@ -13,6 +13,8 @@ CREATE TABLE dbo.UnitGroups
 )
 go
 
+ALTER TABLE [dbo].[UnitGroups] CHECK CONSTRAINT [FK_UnitGroups_Logins]
+GO
 /*
 НУЛЕВОЙ ЛОГИН!!!
 

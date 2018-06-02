@@ -8,12 +8,19 @@ CREATE TABLE dbo.Units
 	UnitShortName        nvarchar(24)  NOT NULL ,
 	UnitName             nvarchar(48)  NOT NULL ,
 	UnitGroupID          bigint  NOT NULL ,
-	LoginID              bigint  NULL ,
+	LoginID              bigint  NOT NULL ,
 	CONSTRAINT PK_Units PRIMARY KEY  CLUSTERED (UnitID ASC),
 	CONSTRAINT FK_Units_UnitGroups FOREIGN KEY (UnitGroupID) REFERENCES dbo.UnitGroups(UnitGroupID),
-CONSTRAINT FK_Units_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
+	CONSTRAINT FK_Units_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
 )
 go
+
+ALTER TABLE [dbo].[Units] CHECK CONSTRAINT [FK_Units_Logins]
+GO
+
+ALTER TABLE [dbo].[Units] CHECK CONSTRAINT FK_Units_UnitGroups
+GO
+
 
 /*
 НУЛЕВОЙ UNITID - для строковых параметров, которые НЕ редактируются

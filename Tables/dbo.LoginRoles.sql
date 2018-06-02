@@ -8,10 +8,9 @@ CREATE TABLE dbo.LoginRoles
 	LoginRoleCode        nvarchar(20)  NOT NULL ,
 	LoginRoleShortName   nvarchar(64)  NOT NULL ,
 	LoginRoleName        nvarchar(128)  NOT NULL ,
-	CONSTRAINT PK_LoginRoles PRIMARY KEY  CLUSTERED (LoginRoleID ASC)
+	CONSTRAINT PK_LoginRoles PRIMARY KEY CLUSTERED (LoginRoleID ASC)
 )
 go
-
 
 INSERT INTO dbo.LoginRoles(
 	LoginRoleID,          

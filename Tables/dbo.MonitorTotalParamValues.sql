@@ -11,4 +11,5 @@ CREATE TABLE dbo.MonitorTotalParamValues
 )
 go
 
-
+ALTER TABLE [dbo].[MonitorTotalParamValues] CHECK CONSTRAINT [FK_MonitorTotalParamValues_MonitorParams]
+GO

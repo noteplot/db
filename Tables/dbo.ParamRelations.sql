@@ -16,6 +16,14 @@ CREATE TABLE dbo.ParamRelations
 )
 go
 
+ALTER TABLE [dbo].[ParamRelations] CHECK CONSTRAINT [FK_ParamRelations_MathOperations]
+GO
+
+ALTER TABLE [dbo].[ParamRelations] CHECK CONSTRAINT [FK_ParamRelations_SecondaryParams]
+GO
+
+ALTER TABLE [dbo].[ParamRelations] CHECK CONSTRAINT [FK_ParamRelations_PrimaryParams]
+GO
 
 
 CREATE UNIQUE NONCLUSTERED INDEX IU_ParamRelations_Primary_Secondary ON dbo.ParamRelations

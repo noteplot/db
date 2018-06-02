@@ -29,4 +29,11 @@ ALTER TABLE dbo.MonitoringParams
 		 DEFAULT  GETUTCDATE() FOR ModifiedDateUTC
 go
 
+ALTER TABLE [dbo].[MonitoringParams] CHECK CONSTRAINT [FK_MonitoringParams_Monitorings]
+GO
 
+ALTER TABLE [dbo].[MonitoringParams] CHECK CONSTRAINT [FK_MonitoringParams_MonitorParams]
+GO
+
+ALTER TABLE [dbo].[MonitoringParams] CHECK CONSTRAINT [FK_MonitoringParams_Params]
+GO

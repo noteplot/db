@@ -12,13 +12,19 @@ CREATE TABLE dbo.Packets
 	CONSTRAINT FK_Packets_Parameters FOREIGN KEY (PacketID) REFERENCES dbo.Parameters(ParameterID),
 	CONSTRAINT FK_Packets_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
 )
-go
+GO
+
+ALTER TABLE [dbo].[Packets] CHECK CONSTRAINT [FK_Packets_Parameters]
+GO
+
+ALTER TABLE [dbo].[Packets] CHECK CONSTRAINT [FK_Packets_Logins]
+GO
 
 CREATE UNIQUE NONCLUSTERED INDEX IU_Packets_Login_ShortName ON dbo.Packets
 ( 
-	LoginID               ASC,
-	PacketShortName		  ASC	
+	LoginID ASC,
+	PacketShortName ASC	
 )
-go
+GO
 
 

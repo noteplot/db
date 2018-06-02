@@ -10,33 +10,27 @@ CREATE TABLE dbo.Parameters
 	Active               bit  NOT NULL ,
 	CONSTRAINT PK_Parameters PRIMARY KEY  CLUSTERED (ParameterID ASC)
 )
-go
-
-
+GO
 
 ALTER TABLE dbo.Parameters
 	ADD CONSTRAINT DF_Parameter_Active
 		 DEFAULT  1 FOR Active
-go
-
-
-
+GO
 
 ALTER TABLE dbo.Parameters
 	ADD CONSTRAINT DF_Paremeters_ParameterKindID
 		 DEFAULT  0 FOR ParameterKindID
-go
-
-
-
+GO
 
 ALTER TABLE dbo.Parameters
 	ADD CONSTRAINT FK_Parameters_ParameterKinds FOREIGN KEY (ParameterKindID) REFERENCES dbo.ParameterKinds(ParameterKindID)
-go
 
-
-
+ALTER TABLE [dbo].[Parameters] CHECK CONSTRAINT [FK_Parameters_ParameterKinds]
+GO
 
 ALTER TABLE dbo.Parameters
 	ADD CONSTRAINT FK_Parameters_ParameterGroups FOREIGN KEY (ParameterGroupID) REFERENCES dbo.ParameterGroups(ParameterGroupID)
-go
+GO
+
+ALTER TABLE [dbo].[Parameters] CHECK CONSTRAINT [FK_Parameters_ParameterGroups]
+GO

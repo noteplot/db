@@ -18,10 +18,13 @@ CREATE TABLE dbo.Logins
 )
 GO
 
+ALTER TABLE [dbo].[Logins] CHECK CONSTRAINT [FK_Logins_LoginRoles]
+GO
 ALTER TABLE [dbo].[Logins] ADD  CONSTRAINT [DF_Logins_IsConfirmed]  DEFAULT ((0)) FOR [IsConfirmed]
 GO
 ALTER TABLE [dbo].[Logins] ADD  CONSTRAINT [DF_Logins_ShowScreenName]  DEFAULT ((0)) FOR [ShowScreenName]
 GO
+
 
 CREATE UNIQUE NONCLUSTERED INDEX [IU_Logins_LoginName] ON [dbo].[Logins]
 (
@@ -29,11 +32,15 @@ CREATE UNIQUE NONCLUSTERED INDEX [IU_Logins_LoginName] ON [dbo].[Logins]
 )
 GO
 
+/*
 CREATE UNIQUE NONCLUSTERED INDEX [IU_Logins_Email] ON [dbo].[Logins]
 (
 	[Email]
 )
 GO
+*/
+--==================================================================
+
 
 INSERT INTO dbo.Logins(
 	LoginRoleID,
@@ -47,7 +54,7 @@ INSERT INTO dbo.Logins(
 VALUES(1,'admin','1','noteplot@bk.ru', 'admin', 1,0);
 GO
 
-
+/*
 INSERT INTO dbo.Logins(
 	LoginRoleID,
 	LoginName,
@@ -59,6 +66,7 @@ INSERT INTO dbo.Logins(
 )
 VALUES(1,'noteplot','1','noteplot@bk.ru', 'Вася Иванов', 1,0);
 GO
+*/
 
 
 	

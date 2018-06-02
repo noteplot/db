@@ -18,7 +18,6 @@ CREATE TABLE dbo.Params
 go
 
 
-
 CREATE UNIQUE NONCLUSTERED INDEX IU_Params_Login_ShortName ON dbo.Params
 ( 
 	LoginID               ASC,
@@ -26,39 +25,38 @@ CREATE UNIQUE NONCLUSTERED INDEX IU_Params_Login_ShortName ON dbo.Params
 )
 go
 
-
-
-
 ALTER TABLE dbo.Params
 	ADD CONSTRAINT FK_Params_ParamValueTypes FOREIGN KEY (ParamValueTypeID) REFERENCES dbo.ParamValueTypes(ParamValueTypeID)
-go
+GO
 
-
-
+ALTER TABLE [dbo].[Params] CHECK CONSTRAINT [FK_Params_ParamValueTypes]
+GO
 
 ALTER TABLE dbo.Params
 	ADD CONSTRAINT FK_Params_Units FOREIGN KEY (ParamUnitID) REFERENCES dbo.Units(UnitID)
-go
+GO
 
-
-
+ALTER TABLE [dbo].[Params] CHECK CONSTRAINT [FK_Params_Units]
+GO
 
 ALTER TABLE dbo.Params
 	ADD CONSTRAINT FK_Params_ParamTypes FOREIGN KEY (ParamTypeID) REFERENCES dbo.ParamTypes(ParamTypeID)
-go
+GO
 
-
-
+ALTER TABLE [dbo].[Params] CHECK CONSTRAINT [FK_Params_ParamTypes]
+GO
 
 ALTER TABLE dbo.Params
 	ADD CONSTRAINT FK_Params_Parameters FOREIGN KEY (ParamID) REFERENCES dbo.Parameters(ParameterID)
-go
+GO
 
-
-
+ALTER TABLE [dbo].[Params] CHECK CONSTRAINT [FK_Params_Parameters]
+GO
 
 ALTER TABLE dbo.Params
 	ADD CONSTRAINT FK_Params_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
-go
+GO
 
+ALTER TABLE [dbo].[Params] CHECK CONSTRAINT [FK_Params_Logins]
+GO
 

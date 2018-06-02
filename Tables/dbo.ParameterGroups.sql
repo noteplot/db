@@ -10,21 +10,18 @@ CREATE TABLE dbo.ParameterGroups
 	LoginID              bigint  NULL ,
 	CONSTRAINT PK_ParamGroups PRIMARY KEY  CLUSTERED (ParameterGroupID ASC)
 )
-go
+GO
 
-
-
-CREATE UNIQUE NONCLUSTERED INDEX IU_ParamGroups_Login_ShortName ON dbo.ParameterGroups
+CREATE UNIQUE NONCLUSTERED INDEX IU_ParamGroups_Login ON dbo.ParameterGroups
 ( 
-	LoginID               ASC,
+	LoginID ASC,
 	ParameterGroupShortName  ASC
 )
-go
-
-
-
+GO
 
 ALTER TABLE dbo.ParameterGroups
 	ADD CONSTRAINT FK_ParameterGroups_Logins FOREIGN KEY (LoginID) REFERENCES dbo.Logins(LoginID)
-go
+GO
 
+ALTER TABLE [dbo].[ParameterGroups] CHECK CONSTRAINT [FK_ParameterGroups_Logins]
+GO
