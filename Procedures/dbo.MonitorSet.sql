@@ -52,17 +52,158 @@ BEGIN
 		
 	BEGIN TRY
 		IF @Mode NOT IN (0,1)
-		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
+
+		IF @MonitorID IS NULL AND @Mode = 1
+			RAISERROR('Монитор не определен!',16,2);
+				
+		IF @Mode in (0,1) and /*@JSON*/@MonitorParameters IS NULL 
+			RAISERROR('Должен быть указан хотя бы один параметр!',16,3);
+				
+		IF @Mode in (0,1)
+		BEGIN			
+			declare
+				@par table (
+					MonitorParamPosition INT NOT NULL IDENTITY(1,1),
+					ParameterID bigint NOT NULL,
+					MonitorParameterValue DECIMAL(28,6) NULL,
+					Active BIT NOT NULL
+				)
+				INSERT INTO @par(ParameterID, MonitorParameterValue, Active)	
+				select 
+					c.value('ParameterID[1]','bigint') AS ParameterID,
+					IIF(p.ParamID IS NULL, NULL, c.value('MonitorParameterValue[1]','DECIMAL(28,6)')) AS MonitorParameterValue,
+					c.value('MonitorParameterActive[1]','bit') AS Active
+				from 
+					@MonitorParameters.nodes('/MonitorParameters/MonitorParameter') t(c)
+				LEFT JOIN dbo.Params AS p ON p.ParamID = c.value('ParameterID[1]','bigint')
+				AND p.ParamTypeID = 2 -- параметр монитора 											
+					
+			IF @@ROWCOUNT = 0	
+				RAISERROR('Должен быть указан хотя бы один параметр!',16,4);
+									
+			-- Список всех параметров монитора(включая пакеты)
+			DECLARE @pm TABLE (
+				ParamID BIGINT NOT NULL,
+				ParamName NVARCHAR(255) NOT NULL,
+				ParamTypeID TINYINT NOT NULL,
+				PacketName NVARCHAR(255) NULL					
+			)
+			INSERT INTO @pm
+			SELECT
+				p.ParamID,
+				p.ParamName,
+				p.ParamTypeID,
+				p.PacketName
+			FROM(
+				SELECT 
+					pm.ParamID,
+					pm.ParamShortName AS ParamName,
+					pm.ParamTypeID,
+					PacketName = null
+				FROM @par AS p
+				JOIN dbo.Params AS pm ON pm.ParamID = p.ParameterID
+				UNION ALL -- из пакетов
+				SELECT 
+					pm.ParamID,
+					pm.ParamShortName AS ParamName,
+					pm.ParamTypeID,
+					PacketName = pt.PacketShortName
+				FROM @par AS p
+				JOIN dbo.Packets AS pt ON pt.PacketID = p.ParameterID
+				JOIN dbo.PacketParams AS pp ON pp.PacketID = pt.PacketID				
+				JOIN dbo.Params AS pm ON pm.ParamID = pp.ParamID
+			) AS p
+
+			select top 1 @ParamID = ParamID 
+			FROM @pm
+			GROUP BY ParamID
+			HAVING(COUNT(1) > 1)
+				
+			IF @@ROWCOUNT > 0 
+			BEGIN
+				SELECT TOP 1 
+					@ParamName = ParamName,
+					@PacketName = PacketName					
+				FROM @pm
+				WHERE ParamID = @ParamID
+				ORDER BY PacketName Desc 
+				set @ErrorMessage = 'Параметры не должны дублироваться! ';
+					
+				IF @PacketName IS NOT NULL
+					set @ErrorMessage += 'см.парaметр "'+@ParamName+'" пакет "'+@PacketName+'".'
+				ELSE	
+					set @ErrorMessage += 'см.парaметр "'+@ParamName+'".';
+																		
+				RAISERROR(@ErrorMessage,16,5); 
+			END
+				
+			-- Проверка корректности расчетных параметров
+			DECLARE @pcl TABLE (
+				CalcParamID BIGINT,
+				CalcParamName NVARCHAR(255),
+				ParamID BIGINT,
+				ParamName NVARCHAR(255)  					
+			)
+								
+			INSERT INTO @pcl(
+				CalcParamID,
+				CalcParamName,
+				ParamID,
+				ParamName
+				)			
+			SELECT
+				pr.PrimaryParamID AS CalcParamID,
+				pm.ParamName AS CalcParamName,
+				pr.SecondaryParamID AS ParamID,
+				pm2.ParamShortName  AS ParamName 
+			FROM @pm AS pm
+			JOIN dbo.Params AS p ON p.ParamID = pm.ParamID AND p.ParamTypeID IN (1,2)
+			JOIN dbo.ParamRelations AS pr ON pr.PrimaryParamID = pm.ParamID
+			JOIN dbo.Params AS pm2 ON pm2.ParamID = pr.SecondaryParamID				  					
+				
+			SELECT TOP 1 
+				@CalcParamName = pcl.CalcParamName,
+				@ParamName = pcl.ParamName					
+			FROM @pcl AS pcl
+			LEFT JOIN @pm AS pm ON pm.ParamID = pcl.ParamID
+			WHERE pm.ParamID IS NULL  	  					
+			IF @@rowcount != 0
+			BEGIN
+				set @ErrorMessage = 'Для расчетных(итоговых) параметров в мониторе должны быть указаны все параметры, которые используются для их расчета.';
+				set @ErrorMessage += ' В частности, для парaметра "'+@CalcParamName+'" должен быть указан параметр "'+@ParamName+'".';
+				RAISERROR(@ErrorMessage,16,6); 
+			END				 				
+				
+			-- проверка на существование измерений по монитору
+			IF @Mode = 1
+			BEGIN
+				IF EXISTS(
+					SELECT 1 FROM dbo.MonitoringParams AS mps 
+					JOIN dbo.Monitorings AS m ON m.MonitoringID = mps.MonitoringID AND m.MonitorID = @MonitorID
+					--JOIN dbo.MonitorParams AS mp ON mp.MonitorParamID = mps.MonitorParamID AND mp.MonitorID = m.MonitorID
+					JOIN (
+						SELECT mp.ParameterID 
+						FROM dbo.MonitorParams AS mp
+						JOIN dbo.Monitors AS m ON m.MonitorID = mp.MonitorID AND m.MonitorID = @MonitorID
+						EXCEPT
+						SELECT psm.ParameterID
+						FROM @par AS psm							
+					) AS prm ON prm.ParameterID = mps.MonitorParamID--mp.ParameterID
+				)						 
+				BEGIN		
+					set @ErrorMessage = 'Из шаблона измерений нельзя удалить параметр, если были проведены измерения. Для исключения параметра из измерений достаточно убрать признак доступности параметра.';
+					RAISERROR(@ErrorMessage,16,7); 
+				END
+			END
 		END
-		BEGIN TRAN
-			IF @Mode in (0,1) and /*@JSON*/@MonitorParameters IS NULL 
-				RAISERROR('Должен быть указан хотя бы один параметр!',16,2);
 			
+		BEGIN TRAN
+						
 			IF @Mode = 0 
 			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.Monitors WHERE LoginID = @LoginID AND MonitorShortName = @MonitorShortName)
-					RAISERROR('Уже есть монитор с таким названием!',16,3);
+				IF EXISTS(SELECT 1 FROM dbo.Monitors (updlock) WHERE LoginID = @LoginID AND MonitorShortName = @MonitorShortName)
+					RAISERROR('Уже есть монитор с таким названием!',16,8);
 					
 				INSERT INTO dbo.Monitors
 				(
@@ -84,10 +225,16 @@ BEGIN
 			ELSE
 			IF @Mode = 1
 			BEGIN
-				IF @MonitorID IS NULL
-					RAISERROR('Монитор не определен!',16,4);
-				IF EXISTS(SELECT 1 FROM dbo.Monitors WHERE MonitorID != @MonitorID and LoginID = @LoginID and MonitorShortName = @MonitorShortName )
-					RAISERROR('Уже есть монитор с таким названием!',16,5);				
+				IF NOT EXISTS(
+					SELECT 1 FROM dbo.Monitors (updlock) 
+				    WHERE 
+					MonitorID = @MonitorID			
+					AND LoginID	= @LoginID 				
+				)
+					RAISERROR('Монитор не существует!',16,9);
+										
+				IF EXISTS(SELECT 1 FROM dbo.Monitors (updlock) WHERE MonitorID != @MonitorID and LoginID = @LoginID and MonitorShortName = @MonitorShortName )
+					RAISERROR('Уже есть монитор с таким названием!',16,10);				
 				
 				UPDATE dbo.Monitors
 				SET
@@ -101,26 +248,57 @@ BEGIN
 				
 			IF @Mode IN (0,1) AND /*@JSON*/@MonitorParameters IS NOT NULL 
 			BEGIN
-				declare
-					@par table (
-						MonitorParamPosition INT NOT NULL IDENTITY(1,1),
-						ParameterID bigint NOT NULL,
-						MonitorParameterValue DECIMAL(28,6) NULL,
-						Active BIT NOT NULL
-					)
-					INSERT INTO @par(ParameterID, MonitorParameterValue, Active)	
-					select 
-						c.value('ParameterID[1]','bigint') AS ParameterID,
-						IIF(p.ParamID IS NULL, NULL, c.value('MonitorParameterValue[1]','DECIMAL(28,6)')) AS MonitorParameterValue,
-						c.value('MonitorParameterActive[1]','bit') AS Active
-					from 
-						@MonitorParameters.nodes('/MonitorParameters/MonitorParameter') t(c)
-					LEFT JOIN dbo.Params AS p ON p.ParamID = c.value('ParameterID[1]','bigint')
-					AND p.ParamTypeID = 2 -- параметр монитора 											
-					
-				IF @@ROWCOUNT = 0	
-					RAISERROR('Должен быть указан хотя бы один параметр!',16,11);
-					
+				
+				-- значение итоговых значений
+				;WITH vls as (
+					select v.*, mp.MonitorID from dbo.MonitorTotalParamValues AS v
+					JOIN dbo.MonitorParams AS mp ON mp.MonitorID = @MonitorID
+					AND mp.MonitorParamID = v.MonitorParamID
+				)			
+				MERGE vls AS t
+				USING (
+					SELECT 
+						mp.MonitorParamID as MonitorParamID,
+						p.MonitorParameterValue AS MonitorParamValue 						 
+				       FROM @par AS p
+				       JOIN dbo.MonitorParams AS mp ON mp.MonitorID = @MonitorID 
+				       AND mp.ParameterID = p.ParameterID
+				       JOIN dbo.Params AS p2 ON p2.ParamID = p.ParameterID AND p2.ParamTypeID = 2 
+				) AS s ON (t.MonitorParamID = s.MonitorParamID)
+				WHEN MATCHED THEN 
+					UPDATE
+						SET t.MonitorParamValue = s.MonitorParamValue
+				WHEN NOT MATCHED THEN		 
+					INSERT (MonitorParamID, MonitorParamValue)
+					VALUES (s.MonitorParamID, s.MonitorParamValue)					
+				WHEN NOT MATCHED by source AND t.MonitorID = @MonitorID THEN
+					DELETE; 
+				
+				MERGE dbo.MonitorParams AS t
+				USING (SELECT @MonitorID as MonitorID, ParameterID, Active, MonitorParamPosition FROM @par) AS s 
+				ON (t.MonitorID = s.MonitorID AND t.ParameterID = s.ParameterID)
+				WHEN NOT MATCHED THEN
+					INSERT (MonitorID, ParameterID,MonitorParamPosition,Active)
+					VALUES (@MonitorID, s.ParameterID,s.MonitorParamPosition,s.Active)					
+				WHEN NOT MATCHED BY SOURCE AND t.MonitorID = @MonitorID  THEN
+					DELETE -- TODO: проверять на монитор
+				WHEN MATCHED THEN
+					UPDATE 
+						SET MonitorParamPosition = s.MonitorParamPosition,[Active] = s.[Active];
+				
+			END					 					
+			COMMIT			
+	END TRY
+	BEGIN CATCH
+		IF @@TRANCOUNT != 0 
+			ROLLBACK;
+		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
+		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
+	END CATCH	  
+END
+GO
+
+
 				/*	
 				declare		
 					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
@@ -177,186 +355,3 @@ BEGIN
 				IF @id = 0
 					RAISERROR('Должен быть указан хотя бы один параметр!',16,11);
 				*/
-				
-/*														
-				if exists(SELECT top 1 1
-				FROM @par 
-				GROUP BY ParameterID
-				HAVING(COUNT(1) > 1)
-				)
-					RAISERROR('Параметры не должны дублироваться!',16,12);
-*/				
-				-- Список всех параметров монитора(включая пакеты)
-				DECLARE @pm TABLE (
-					ParamID BIGINT NOT NULL,
-					ParamName NVARCHAR(255) NOT NULL,
-					ParamTypeID TINYINT NOT NULL,
-					PacketName NVARCHAR(255) NULL					
-				)
-				INSERT INTO @pm
-				SELECT
-					p.ParamID,
-					p.ParamName,
-					p.ParamTypeID,
-					p.PacketName
-				FROM(
-					SELECT 
-						pm.ParamID,
-						pm.ParamShortName AS ParamName,
-						pm.ParamTypeID,
-						PacketName = null
-					FROM @par AS p
-					JOIN dbo.Params AS pm ON pm.ParamID = p.ParameterID
-					UNION ALL -- из пакетов
-					SELECT 
-						pm.ParamID,
-						pm.ParamShortName AS ParamName,
-						pm.ParamTypeID,
-						PacketName = pt.PacketShortName
-					FROM @par AS p
-					JOIN dbo.Packets AS pt ON pt.PacketID = p.ParameterID
-					JOIN dbo.PacketParams AS pp ON pp.PacketID = pt.PacketID				
-					JOIN dbo.Params AS pm ON pm.ParamID = pp.ParamID
-				) AS p
-/*								
-				if exists(SELECT top 1 1
-				FROM @pm 
-				GROUP BY ParamID
-				HAVING(COUNT(1) > 1)
-				)				
-					RAISERROR('Параметры не должны дублироваться!',16,12);
-*/				
-/*
-				select top 1 @ParamName = ParamName 
-				FROM @pm
-				GROUP BY ParamID,ParamName
-				HAVING(COUNT(1) > 1)
-*/
-				select top 1 @ParamID = ParamID 
-				FROM @pm
-				GROUP BY ParamID
-				HAVING(COUNT(1) > 1)
-				
-				IF @@ROWCOUNT > 0 
-				BEGIN
-					SELECT TOP 1 
-						@ParamName = ParamName,
-						@PacketName = PacketName					
-					FROM @pm
-					WHERE ParamID = @ParamID
-					ORDER BY PacketName Desc 
-					set @ErrorMessage = 'Параметры не должны дублироваться! ';
-					
-					IF @PacketName IS NOT NULL
-						set @ErrorMessage += 'см.парaметр "'+@ParamName+'" пакет "'+@PacketName+'".'
-					ELSE	
-						set @ErrorMessage += 'см.парaметр "'+@ParamName+'".';
-																		
-					RAISERROR(@ErrorMessage,16,12); 
-				END
-				
-				-- Проверка корректности расчетных параметров
-				DECLARE @pcl TABLE (
-					CalcParamID BIGINT,
-					CalcParamName NVARCHAR(255),
-					ParamID BIGINT,
-					ParamName NVARCHAR(255)  					
-				)
-								
-				INSERT INTO @pcl(
-				    CalcParamID,
-				    CalcParamName,
-				    ParamID,
-				    ParamName
-				  )			
-				SELECT
-				    pr.PrimaryParamID AS CalcParamID,
-				    pm.ParamName AS CalcParamName,
-					pr.SecondaryParamID AS ParamID,
-					pm2.ParamShortName  AS ParamName 
-				FROM @pm AS pm
-				JOIN dbo.Params AS p ON p.ParamID = pm.ParamID AND p.ParamTypeID IN (1,2)
-				JOIN dbo.ParamRelations AS pr ON pr.PrimaryParamID = pm.ParamID
-				JOIN dbo.Params AS pm2 ON pm2.ParamID = pr.SecondaryParamID				  					
-				
-				SELECT TOP 1 
-					@CalcParamName = pcl.CalcParamName,
-					@ParamName = pcl.ParamName					
-				FROM @pcl AS pcl
-				LEFT JOIN @pm AS pm ON pm.ParamID = pcl.ParamID
-				WHERE pm.ParamID IS NULL  	  					
-				IF @@rowcount != 0
-				BEGIN
-					set @ErrorMessage = 'Для расчетных(итоговых) параметров в мониторе должны быть указаны все параметры, которые используются для их расчета.';
-					set @ErrorMessage += ' В частности, для парaметра "'+@CalcParamName+'" должен быть указан параметр "'+@ParamName+'".';
-					RAISERROR(@ErrorMessage,16,13); 
-				END				 				
-				
-				-- проверка на существование измерений по монитору
-				IF @Mode = 1
-				BEGIN
-					IF EXISTS(
-						SELECT 1 FROM dbo.MonitoringParams AS mps
-						JOIN dbo.Monitorings AS m ON m.MonitoringID = mps.MonitoringID AND m.MonitorID = @MonitorID
-						JOIN dbo.MonitorParams AS mp ON mp.MonitorParamID = mps.MonitorParamID AND mp.MonitorID = m.MonitorID)						 
-					BEGIN						 
-						IF EXISTS(
-							SELECT TOP 1 1 FROM dbo.MonitorParams AS mp
-							LEFT JOIN @par AS pr ON pr.ParameterID = mp.ParameterID
-							WHERE  mp.MonitorID = @MonitorID AND pr.ParameterID IS NULL
-							)	
-						BEGIN
-							set @ErrorMessage = 'Из шаблона измерений нельзя удалить параметр, если были проведены измерения. Для исключения параметра из измерений достаточно убрать признак доступности параметра.';
-							RAISERROR(@ErrorMessage,16,14); 
-						END
-					END
-				END
-				
-				-- значение итоговых значений
-				;WITH vls as (
-					select v.*, mp.MonitorID from dbo.MonitorTotalParamValues AS v
-					JOIN dbo.MonitorParams AS mp ON mp.MonitorID = @MonitorID
-					AND mp.MonitorParamID = v.MonitorParamID
-				)			
-				MERGE vls AS t
-				USING (
-					SELECT 
-						mp.MonitorParamID as MonitorParamID,
-						p.MonitorParameterValue AS MonitorParamValue 						 
-				       FROM @par AS p
-				       JOIN dbo.MonitorParams AS mp ON mp.MonitorID = @MonitorID 
-				       AND mp.ParameterID = p.ParameterID
-				       JOIN dbo.Params AS p2 ON p2.ParamID = p.ParameterID AND p2.ParamTypeID = 2 
-				) AS s ON (t.MonitorParamID = s.MonitorParamID)
-				WHEN MATCHED THEN 
-					UPDATE
-						SET t.MonitorParamValue = s.MonitorParamValue
-				WHEN NOT MATCHED THEN		 
-					INSERT (MonitorParamID, MonitorParamValue)
-					VALUES (s.MonitorParamID, s.MonitorParamValue)					
-				WHEN NOT MATCHED by source AND t.MonitorID = @MonitorID THEN
-					DELETE; 
-				
-				MERGE dbo.MonitorParams AS t
-				USING (SELECT @MonitorID as MonitorID, ParameterID, Active, MonitorParamPosition FROM @par) AS s 
-				ON (t.MonitorID = s.MonitorID AND t.ParameterID = s.ParameterID)
-				WHEN NOT MATCHED THEN
-					INSERT (MonitorID, ParameterID,MonitorParamPosition,Active)
-					VALUES (@MonitorID, s.ParameterID,s.MonitorParamPosition,s.Active)					
-				WHEN NOT MATCHED BY SOURCE AND t.MonitorID = @MonitorID  THEN
-					DELETE -- TODO: проверять на монитор
-				WHEN MATCHED THEN
-					UPDATE 
-						SET MonitorParamPosition = s.MonitorParamPosition,[Active] = s.[Active];
-				
-			END					 					
-			COMMIT			
-	END TRY
-	BEGIN CATCH
-		IF @@TRANCOUNT != 0 
-			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
-	END CATCH	  
-END
-GO
