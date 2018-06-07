@@ -26,19 +26,56 @@ BEGIN
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
 		@ErrorState INT	   		
-
+	
 	BEGIN TRY
+		
 		IF @Mode NOT IN (0,1,2)
 		BEGIN
-			RAISERROR('Некорректное значение параметра @Mode',16,1);	
+			RAISERROR('Некорректное значение параметра @Mode!',16,1);	
 		END
+		
+		if @LoginID IS NULL
+			RAISERROR('Не определена учетная запись!',16,2);
+				
+		IF @Mode NOT IN (1,2)
+		BEGIN
+			IF @UnitID IS NULL
+				RAISERROR('Ед. измерения не указана!',16,3);
+		END				
+		
+		IF @Mode NOT IN (0,1)
+		BEGIN
+			IF @UnitShortName is not null and RTRIM(LTRIM(@UnitShortName)) = ''
+				set @UnitShortName = NULL
+			
+			IF @UnitName is not null and RTRIM(LTRIM(@UnitName)) = ''
+				set @UnitShortName = NULL			
+
+			IF @UnitShortName IS NULL
+				RAISERROR('Не указано краткое наименование!',16,4);
+				
+			IF @UnitName IS NULL
+				RAISERROR('Не указано полное наименование!',16,5);
+				
+			IF @UnitGroupID IS NULL
+				RAISERROR('Не указана группа!',16,6);				
+		END				
+						
 		BEGIN TRAN
+			IF @Mode IN (1,2)
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM dbo.Units (updlock) WHERE UnitID = @UnitID)
+					RAISERROR('Такой ед. измерения нет!',16,7);				
+			END;	
+			
+			IF @Mode IN (0,1)
+			BEGIN									
+				IF EXISTS(SELECT 1 FROM dbo.Units (updlock) WHERE UnitShortName = @UnitShortName AND LoginID = @LoginID)
+					RAISERROR('Уже есть ед. измерения с таким кратким наименованием!',16,8);													
+			END;	
 			
 			IF @Mode = 0 -- ins 
-			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.Units WHERE UnitShortName = @UnitShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть ед. измерения с таким кратким названием!',16,2);				
-												
+			BEGIN												
 				INSERT INTO dbo.Units
 				(			
 					[UnitShortName],
@@ -58,11 +95,6 @@ BEGIN
 			ELSE
 			IF @Mode = 1
 			BEGIN
-				IF @UnitID IS NULL
-					RAISERROR('Ед. измерения не установлена!',16,3);
-				IF EXISTS(SELECT 1 FROM dbo.Units WHERE UnitID != @UnitID and UnitShortName = @UnitShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть ед. измерения с таким кратким названием!',16,4);				
-
 				UPDATE dbo.Units
 				SET 					
 					UnitShortName = @UnitShortName,
@@ -76,11 +108,11 @@ BEGIN
 			IF @Mode = 2
 			BEGIN
 				IF EXISTS(
-					SELECT 1 FROM dbo.Params AS p
+					SELECT 1 FROM dbo.Params AS p (updlock)
 					WHERE p.ParamUnitID = @UnitID AND p.LoginID = @LoginID 
 				)
 				BEGIN
-					RAISERROR('Ед.измерения используется в параметрах!',16,5);
+					RAISERROR('Ед.измерения используется в параметрах!',16,9);
 				END	
 				
 				DELETE FROM dbo.Units	-- AFTER trigger

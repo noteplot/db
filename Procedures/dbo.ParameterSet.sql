@@ -33,7 +33,6 @@ ALTER PROCEDURE dbo.ParameterSet
 	@ParamValueMIN		DECIMAL(28,6) = NULL,
 	@LoginID			BIGINT,
 	@Active				BIT = 1,
---	@JSON				VARCHAR(MAX) = NULL,
 	@ParameterRelations	XML = NULL, 			
 	@Mode				TINYINT	
 AS
@@ -42,33 +41,102 @@ BEGIN
 	DECLARE 
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
-		@ErrorState INT,	   		
-		@lParameter int = LEN('"ParameterID":"'),
-		@lMathOperationID int = LEN('"MathOperationID":"'),
-		@rParameterID bigint, @rMathOperationID bigint
-		
+		@ErrorState INT
 						
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
 		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
-		BEGIN TRAN
-			IF @Mode in (0,1) and @ParamTypeID IN (1,2) AND /*@JSON*/@ParameterRelations IS NULL 
-				RAISERROR('Должен быть указан хотя бы один связанный параметр для вычисления значения!',16,2);
+		
+		IF @Mode in (0,1)
+		BEGIN
+			if @ParamTypeID = 0 AND @ParameterRelations IS NOT NULL 
+				RAISERROR('Для данного типа связанных параметров не должно быть!',16,2);
+			 
+			if @ParamTypeID IN (1,2) AND @ParameterRelations IS NULL 
+				RAISERROR('Для данного типа должен быть указан хотя бы один связанный параметр!',16,2);
+			IF @ParamValueMAX IS NOT NULL AND @ParamValueMIN IS NOT NULL 
+			BEGIN
+				IF @ParamValueMAX <= @ParamValueMIN 
+				RAISERROR('Максимальное значение должно быть больше минимального!',16,5);
+			END								
+		END
+		
+		IF @Mode in (1,2)
+		BEGIN 
+			IF @ParameterID IS NULL
+				RAISERROR('Параметр не указан!',16,4);
+		END
+
+		IF @Mode IN (0,1) AND @ParameterRelations IS NOT NULL 
+		BEGIN
+			declare
+				@rls table (
+					ParamRelationPosition INT NOT NULL IDENTITY(1,1),
+					ParameterID BIGINT NOT NULL,
+					MathOperationID INT  NOT NULL
+				)
+				INSERT INTO @rls(ParameterID, MathOperationID)	
+				select 
+					c.value('ParameterID[1]','bigint') AS ParameterID,
+					c.value('MathOperationID[1]','tinyint') AS MathOperationID
+				from 
+					@ParameterRelations.nodes('/ParameterRelations/ParameterRelation') t(c)
+					
+			IF @@ROWCOUNT = 0
+				RAISERROR('Должен быть указан хотя бы один связанный параметр!',16,9);
+				
+			IF EXISTS(
+					SELECT 1 
+					FROM @rls AS r
+					WHERE r.ParameterID = @ParameterID
+			)								
+				RAISERROR('Связанный параметр не должен совпадать с текущим!',16,10);					
+
+			if exists(
+				SELECT 1 FROM @rls GROUP BY ParameterID
+				HAVING(COUNT(1) > 1)
+			)
+				RAISERROR('Связанные параметры не должны дублироваться!',16,12);
+		END
+		
+				
+		BEGIN TRAN			
+			IF @Mode in (0,1)
+			BEGIN
+				IF NOT EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamID = @ParameterID AND LoginID = @LoginID)
+					RAISERROR('Указанный параметр не существует!',16,3);
+					 
+				IF EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
+					RAISERROR('Уже есть параметр с таким названием!',16,3);
+
+			END
 			-- изменение типа параметра	
 			IF @Mode = 1 AND @ParamTypeID = 0 AND (EXISTS(SELECT 1 FROM dbo.Params AS p (updlock) WHERE p.ParamID = @ParameterID AND p.ParamTypeID != @ParamTypeID))
 			BEGIN
+				DECLARE
+					@MonitorShortName NVARCHAR(255);	
+				-- ПРОВЕРКА НА МОНИТОРИНГ
+				SELECT 
+					@MonitorShortName = m.MonitorShortName  
+				FROM dbo.MonitoringParams AS mps (updlock)
+				JOIN dbo.Monitorings AS ms (updlock) ON ms.MonitoringID = mps.MonitoringID
+				JOIN dbo.Monitors AS m (updlock) ON m.MonitorID = ms.MonitorID
+				JOIN dbo.MonitorParams AS mp (updlock) ON mp.MonitorID = m.MonitorID				 
+				WHERE mps.ParamID = @ParameterID
+				IF @MonitorShortName IS NOT NULL
+				BEGIN
+					RAISERROR('Изменить тип параметра нельзя, т. к. он используется в измерениях по монитору  %s.',16,3, @MonitorShortName);
+				end	
+				
 				-- удаляем связанные параметры
 				DELETE FROM dbo.ParamRelations
 				WHERE PrimaryParamID = @ParameterID			
 			END
-			
+						
 			IF @Mode = 0 
-			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть параметр с таким названием!',16,3);				
-				
+			BEGIN				
 				INSERT INTO dbo.Parameters(ParameterKindID,ParameterGroupID)
 				VALUES(0,@ParameterGroupID)
 				SET @ParameterID = SCOPE_IDENTITY();
@@ -101,15 +169,6 @@ BEGIN
 			ELSE
 			IF @Mode = 1
 			BEGIN
-				IF @ParameterID IS NULL
-					RAISERROR('Параметр не установлен!',16,4);
-				IF EXISTS(SELECT 1 FROM dbo.Params WHERE ParamID != @ParameterID and ParamShortName = @ParamShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть параметр с таким названием!',16,5);
-				IF @ParamValueMAX IS NOT NULL AND @ParamValueMIN IS NOT NULL 
-				BEGIN
-					IF @ParamValueMAX <= @ParamValueMIN 
-					RAISERROR('Максимальное значение должно быть больше минимального!',16,5);
-				END
 				UPDATE dbo.Parameters
 				SET 					
 					ParameterGroupID	= @ParameterGroupID,
@@ -132,89 +191,12 @@ BEGIN
 			END
 			ELSE					 
 			IF @Mode = 2
-				DELETE FROM dbo.Params	-- AFTER trigger
-				WHERE 	
-					 ParamID = @ParameterID
-					 AND LoginID = @LoginID
-			
-			IF @Mode IN (0,1) AND /*@JSON*/@ParameterRelations IS NOT NULL 
 			BEGIN
-				declare
-					@rls table (
-						ParamRelationPosition INT NOT NULL IDENTITY(1,1),
-						ParameterID BIGINT NOT NULL,
-						MathOperationID INT  NOT NULL
-					)
-					INSERT INTO @rls(ParameterID, MathOperationID)	
-					select 
-						c.value('ParameterID[1]','bigint') AS ParameterID,
-						c.value('MathOperationID[1]','tinyint') AS MathOperationID
-					from 
-						@ParameterRelations.nodes('/ParameterRelations/ParameterRelation') t(c)
-					
-				/*					
-				declare		
-					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
-
-				set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
-				while(1=1)
-				begin
-					set @ind1 = CHARINDEX('"ParameterID":"',@JSON,@ind1)
-					if @ind1 = 0
-						break;
-					set @ind1 += @lParameter
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						RAISERROR('Не определен идентификатор связанного параметра!',16,6);	
-						break;
-					END;	
-					set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1) 
-					set @ind1 = CHARINDEX('"MathOperationID":"',@JSON,@ind2)+@lMathOperationID
-					if @ind1 = 0
-					BEGIN
-						RAISERROR('Не указан тип математической операции!',16,7);	
-						break;
-					END;						
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						RAISERROR('Не указан идентификатор математической операции!',16,8);	
-						break;
-					END;						
-					set @rMathOperationID  = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
-					insert into @rls(ParameterID,MathOperationID)
-						select @rParameterID,@rMathOperationID
-					set @id += 1
-				END
-				
-				IF @id = 0
-					RAISERROR('Должен быть указан хотя бы один связанный параметр!',16,9);
-				*/
-				IF @@ROWCOUNT = 0
-					RAISERROR('Должен быть указан хотя бы один связанный параметр!',16,9);
-				
-				IF EXISTS(
-						SELECT 1 
-						FROM @rls AS r
-						WHERE r.ParameterID = @ParameterID
-				)								
-					RAISERROR('Связанный параметр не должен совпадать с текущим!',16,10);					
-/*				
-				IF EXISTS(
-						SELECT 1 
-						FROM @rls AS r
-						JOIN dbo.Params AS p ON p.ParamID = r.ParameterID
-						AND p.ParamTypeID != 0
-				)								
-					RAISERROR('Связанные параметры должны быть простого типа!',16,11);					
-*/										
-				if exists(
-					SELECT 1 FROM @rls GROUP BY ParameterID
-					HAVING(COUNT(1) > 1)
-				)
-					RAISERROR('Связанные параметры не должны дублироваться!',16,12);
-			
+				exec dbo.ParameterDelete @ParameterID, @LoginID
+			END		 
+								
+			IF @Mode IN (0,1) AND @ParameterRelations IS NOT NULL 
+			BEGIN			
 				MERGE dbo.ParamRelations AS t
 				USING (SELECT ParameterID AS [SecondaryParamID], MathOperationID, ParamRelationPosition
 				       FROM @rls) AS s 
@@ -238,3 +220,50 @@ BEGIN
 	END CATCH	  
 END
 GO
+
+
+--	@JSON				VARCHAR(MAX) = NULL,
+/*	   		
+@lParameter int = LEN('"ParameterID":"'),
+@lMathOperationID int = LEN('"MathOperationID":"'),
+@rParameterID bigint, @rMathOperationID bigint
+*/
+/*					
+declare		
+	@ind1 bigint=0, @ind2 bigint=0, @id int = 0
+
+set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
+while(1=1)
+begin
+	set @ind1 = CHARINDEX('"ParameterID":"',@JSON,@ind1)
+	if @ind1 = 0
+		break;
+	set @ind1 += @lParameter
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		RAISERROR('Не определен идентификатор связанного параметра!',16,6);	
+		break;
+	END;	
+	set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1) 
+	set @ind1 = CHARINDEX('"MathOperationID":"',@JSON,@ind2)+@lMathOperationID
+	if @ind1 = 0
+	BEGIN
+		RAISERROR('Не указан тип математической операции!',16,7);	
+		break;
+	END;						
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		RAISERROR('Не указан идентификатор математической операции!',16,8);	
+		break;
+	END;						
+	set @rMathOperationID  = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+	insert into @rls(ParameterID,MathOperationID)
+		select @rParameterID,@rMathOperationID
+	set @id += 1
+END
+				
+IF @id = 0
+	RAISERROR('Должен быть указан хотя бы один связанный параметр!',16,9);
+*/

@@ -24,17 +24,22 @@ BEGIN
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
 		@ErrorState INT
+	
+	DECLARE @lv table(
+		LoginView NVARCHAR(128)
+	)	
 			
 	BEGIN TRY
 		BEGIN TRAN
-		update [dbo].[Logins]
-			set
+			UPDATE [dbo].[Logins]
+			SET
 				Password = @Password,
 				ScreenName = @ScreenName,
 				ShowScreenName = @ShowScreenName
-		where LoginID = @LoginID
-		SELECT @LoginView = LoginView FROM [dbo].[Logins]
-		WHERE LoginID = @LoginID
+				OUTPUT inserted.LoginView INTO @lv		
+			WHERE LoginID = @LoginID
+			
+			SELECT @LoginView = LoginView FROM @lv
 		COMMIT
 	END TRY	
 	BEGIN CATCH

@@ -35,7 +35,7 @@ BEGIN
 			
 			IF @Mode = 0 -- ins 
 			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.UnitGroups WHERE UnitGroupShortName = @UnitGroupShortName AND LoginID = @LoginID)
+				IF EXISTS(SELECT 1 FROM dbo.UnitGroups (updlock) WHERE UnitGroupShortName = @UnitGroupShortName AND LoginID = @LoginID)
 					RAISERROR('Уже есть параметр с таким кратким названием!',16,2);				
 												
 				INSERT INTO dbo.UnitGroups
@@ -58,7 +58,7 @@ BEGIN
 				IF @UnitGroupID IS NULL
 					RAISERROR('Группа не установлена!',16,3);
 				IF EXISTS(SELECT 1 FROM dbo.UnitGroups WHERE UnitGroupID != @UnitGroupID and UnitGroupShortName = @UnitGroupShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть параметр с таким кратким названием!',16,4);				
+					RAISERROR('Уже есть группа с таким кратким наименованием!',16,4);				
 
 				UPDATE dbo.UnitGroups
 				SET 					
@@ -72,7 +72,7 @@ BEGIN
 			IF @Mode = 2
 			BEGIN
 				IF EXISTS(
-					SELECT 1 FROM dbo.Units AS u
+					SELECT 1 FROM dbo.Units AS u (updlock)
 					WHERE u.UnitGroupID = @UnitGroupID AND u.LoginID = @LoginID 
 				)
 				BEGIN

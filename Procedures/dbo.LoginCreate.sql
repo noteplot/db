@@ -24,6 +24,9 @@ BEGIN
 	SET NOCOUNT ON;
 	DECLARE
 		@IsConfirmed BIT;
+		
+	IF @Email IS NULL 
+		SET @Email = @LoginName
 				
 	BEGIN TRY
 		BEGIN TRAN
@@ -33,12 +36,10 @@ BEGIN
 				IF @IsConfirmed = 1	-- логин подтвержден, если нет обновляем данные регистрации
 					RAISERROR('Такой логин уже существует!',16,1); 
 			END
-		
-		IF @Email IS NULL 
-			SET @Email = @LoginName
-		
-		if @LoginRoleID is null
-		set @LoginRoleID = 3
+				
+			if @LoginRoleID is null
+				set @LoginRoleID = 3
+			
 			IF @LoginID IS NULL
 			BEGIN				
 				INSERT INTO dbo.Logins

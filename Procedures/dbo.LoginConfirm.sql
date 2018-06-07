@@ -16,14 +16,14 @@ ALTER PROCEDURE [dbo].[LoginConfirm]
 AS
 BEGIN
 	SET NOCOUNT ON;
-	BEGIN TRY
-		IF NOT EXISTS (		
-		SELECT 1 FROM dbo.Logins WHERE LoginID = @LoginID)
-		BEGIN
-			RAISERROR('Данная учетная запись не существует!',16,1)
-		END
-		
-		BEGIN TRAN		
+	BEGIN TRY		
+		BEGIN TRAN
+			IF NOT EXISTS (		
+			SELECT 1 FROM dbo.Logins(updlock) WHERE LoginID = @LoginID)
+			BEGIN
+				RAISERROR('Данная учетная запись не существует!',16,1)
+			END
+				
 			UPDATE dbo.Logins
 				set IsConfirmed = 1
 			where LoginID = @LoginID

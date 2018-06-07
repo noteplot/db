@@ -53,6 +53,7 @@ BEGIN
 		@rc INT = 0,
 		@rt INT = 0,
 		@rl INT = 0,
+		@AllParams INT = 0,
 		@ParamID BIGINT,
 		@ParamNewID BIGINT,
 		@MonitorParamID BIGINT,
@@ -65,62 +66,57 @@ BEGIN
 		@Scale TINYINT = 0;
 								
 	BEGIN TRY
+		-- ПРОВЕРКИ
 		IF @Mode NOT IN (0,1,2)
 		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
-			IF @Mode IN (1,2)
-			BEGIN
-				IF @MonitorID IS NULL
-				BEGIN	 
-					SELECT @MonitorID = MonitorID FROM dbo.MonitoringParams AS mp
-					JOIN dbo.MonitorParams AS mp2 ON mp2.MonitorParamID = mp.MonitorParamID
-					WHERE mp.MonitoringID = @MonitoringID
-				END	
-			END
-		
-			IF @Mode = 0
-			BEGIN
-				IF @MonitorID IS NULL	 
-					RAISERROR('Не указан шаблон измерения',16,2);
-			END
-		
-			IF @Mode = 1
-			BEGIN
-				IF @MonitoringID IS NULL
-					RAISERROR('Не указано измерение параметров.',16,3);
-			END
-			
-			IF @Mode IN (0,1)
-			BEGIN
-				IF @MonitoringDate IS NULL	 
-					RAISERROR('Не установлено время измерения',16,4);
-					
-				--IF @JSON IS NULL
-				IF @MonitoringParams IS NULL
-					RAISERROR('Нет списка параметров измерения',16,5);
-					
-				IF EXISTS(SELECT 1 FROM dbo.Monitorings WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
-				AND MonitoringID != IsNull(@MonitoringID,0)) 
-					RAISERROR('Уже есть измерение с такой датой и временем!',16,6);
-			END
+		IF @Mode = 0
+		BEGIN
+			IF @MonitorID IS NULL	 
+				RAISERROR('Не указан шаблон измерения(монитор).',16,2);
+		END							
+		IF @Mode IN (0,1)
+		BEGIN
+			IF @MonitoringID IS NULL
+				RAISERROR('Не указано измерение по монитору.',16,3);
 
-			declare
-				@pars table (
-					MonitoringParamID BIGINT NULL,
-					MonitorParamID BIGINT NOT NULL,
-					ParamID BIGINT NOT NULL,
-					ParamValue DECIMAL(28,6) NULL,
-					ParamTypeID TINYINT NOT NULL,
-					OldParamValue DECIMAL(28,6) NULL
-				)
-			
+			IF @MonitorID IS NULL
+			BEGIN	 
+				SELECT @MonitorID = MonitorID FROM dbo.MonitoringParams AS mp
+				JOIN dbo.MonitorParams AS mp2 ON mp2.MonitorParamID = mp.MonitorParamID
+				WHERE mp.MonitoringID = @MonitoringID
+			END
+				
+			IF @MonitoringDate IS NULL	 
+				RAISERROR('Не установлено время измерения.',16,4);
+				
+			IF @MonitoringParams IS NULL
+				RAISERROR('Нет параметров измерения.',16,5);
+				
+			IF EXISTS(SELECT 1 FROM dbo.Monitorings WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
+			AND MonitoringID != IsNull(@MonitoringID,0)) 
+				RAISERROR('Уже есть измерение с такой датой и временем!',16,6);
+		END
+
+		-- параметры
+		declare
+			@pars table (
+				MonitoringParamID BIGINT NULL,
+				MonitorParamID BIGINT NOT NULL,
+				ParamID BIGINT NOT NULL,
+				ParamValue DECIMAL(28,6) NULL,
+				ParamTypeID TINYINT NOT NULL,
+				OldParamValue DECIMAL(28,6) NULL
+			)
+						
 			IF @Mode IN (0,1) 
 			BEGIN
 				DECLARE
 					@id int = 1
 					
-				declare
+				-- вычисляемые параметры	
+				DECLARE
 					@parc table (
 						ID INT IDENTITY(1,1) PRIMARY KEY,
 						MonitoringParamID BIGINT NULL,
@@ -149,150 +145,77 @@ BEGIN
 						MathOperationID TINYINT NOT NULL,
 						Scale TINYINT NOT NULL
 				)
-								
+			END
+				
+			IF @Mode IN (0,1) 
+			BEGIN								
 				INSERT INTO @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID,OldParamValue)	
 				select 
 					c.value('MonitoringParamID[1]','bigint')		AS MonitoringParamID,
 					c.value('MonitorParamID[1]','bigint')			AS MonitorParamID,
 					c.value('ParameterID[1]','bigint')				AS ParamID,
 					c.value('ParameterValue[1]','DECIMAL(28,6)')	AS ParamValue,
-					c.value('ParameterTypeID[1]','int')				AS ParamTypeID,												
-					mp.ParamValue									AS OldParamValue
-				FROM @MonitoringParams.nodes('/MonitoringParams/MonitoringParam') t(c) 
-				left join dbo.MonitoringParams AS mp on mp.MonitoringParamID = c.value('MonitoringParamID[1]','bigint') 
-				
-				IF @@ROWCOUNT = 0
-					RAISERROR('Нет данных измерения!',16,6);						
-						
-				INSERT INTO @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
-				select 
-					ps.MonitoringParamID,
-					ps.MonitorParamID,
-					ps.ParamID,
-					ps.ParamValue,
-					pvt.Scale
-				FROM @pars AS ps						
-				JOIN dbo.Params AS p ON p.ParamID = ps.ParamID
-				JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID
-				WHERE ps.ParamTypeID = 1 -- вычисляемый параметр
-
-				/*	
-				declare		
-					@ind1 bigint=0, @ind2 bigint=0, @id int = 1 
-
-				-- значения параметров
-				set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
-				--DECLARE @rowId INT = 1				
-				while(1=1)
-				begin
-					set @ind1 = CHARINDEX('"MonitoringParamID":"',@JSON,@ind1)
-					if @ind1 = 0
-						break;
-					set @ind1 += @lMonitoringParamID
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0 
-					BEGIN		
-						IF @Mode = 1
-						BEGIN				
-							RAISERROR('Не определено значение идентификатора записи в измерении!',16,6);	
-							break;
-						END
-						else
-							SET @rMonitoringParamID = NULL
-					END
-					ELSE
-					BEGIN		
-						IF SUBSTRING(@JSON,@ind1,@ind2-@ind1) = ''
-							set @rMonitoringParamID = NULL
-						ELSE
-							set @rMonitoringParamID = SUBSTRING(@JSON,@ind1,@ind2-@ind1);
-					END	
-
-					set @ind1 = CHARINDEX('"MonitorParamID":"',@JSON,@ind1)--+@lMonitorParamID
-					if @ind1 = 0
-					BEGIN
-						RAISERROR('Не определен идентификатор параметра в шаблоне измерения!',16,6);
-						break;						
-					END
-						
-					set @ind1 += @lMonitorParamID
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						RAISERROR('Не определено значение идентификатора параметра в шаблоне измерения!',16,6);	
-						break;
-					END		
-					ELSE
-						set @rMonitorParamID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
-
-					set @ind1 = CHARINDEX('"ParameterID":"',@JSON,@ind1)--+@lParameterID
-					if @ind1 = 0
-					BEGIN
-						RAISERROR('Не определен идентификатор параметра!',16,6);
-						break;
-					END;	
-					set @ind1 += @lParameterID
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						RAISERROR('Не определено значение идентификатора параметра!',16,6);	
-						break;
-					END;	
-					set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+					c.value('ParameterTypeID[1]','int')				AS ParamTypeID												
+					--mp.ParamValue									AS OldParamValue
+				FROM @MonitoringParams.nodes('/MonitoringParams/MonitoringParam') t(c)
+				set @AllParams = @@ROWCOUNT; 
+				IF @AllParams = 0
+					RAISERROR('Нет параметров измерения!',16,6);
 					
-					set @ind1 = CHARINDEX('"ParameterTypeID":"',@JSON,@ind1)--+@lParameterID
-					if @ind1 = 0
-					BEGIN
-						RAISERROR('Не определен идентификатор типа параметра!',16,6);
-						break;
-					END;	
-					set @ind1 += @lParameterTypeID
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						RAISERROR('Не определен тип параметра!',16,6);	
-						break;
-					END;	
-					set @rParameterTypeID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
-
-					SET @sParameterValue = '"ParameterValue'+CAST(@id AS NVARCHAR(255))+'":"';
-					SET @lParameterValue = LEN(@sParameterValue);
-					 
-					set @ind1 = CHARINDEX(@sParameterValue,@JSON,@ind2)--+@lParameterValue
-					if @ind1 = 0
-					BEGIN
-						RAISERROR('Не указан идентификатор значения параметра!',16,7);	
-						break;
-					END;
-					set @ind1 += @lParameterValue						
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						set @rParameterValue = NULL -- для расчетных значений
-						--RAISERROR('Не указано значение параметра!',16,8);	
-						--break;
-					END						
-					set @rParameterValue  = REPLACE(nullif(SUBSTRING(@JSON,@ind1,@ind2-@ind1),''),@comma,@point);
+				IF EXISTS(
+					SELECT 1 FROM @pars AS p
+					JOIN dbo.Params AS p2 ON p2.ParamID = p.ParamID AND p2.ParamTypeID = 0
+					WHERE p.ParamValue IS NULL 
+				)
+				BEGIN
+					RAISERROR('Для параметров должно быть указано значение измерения!',16,7);	
+				END
 					
-					insert into @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID,OldParamValue)
-						select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,@rParameterTypeID,
-						(SELECT mp.ParamValue FROM dbo.MonitoringParams AS mp where @rMonitoringParamID IS NOT NULL and mp.MonitoringParamID = @rMonitoringParamID) -- считываем текущее значение параметра монитора
-					SET @rs += 1;	
-					IF @rParameterTypeID = 1
+				IF @Mode = 0
+				BEGIN
+					if exists(SELECT top 1 1
+					FROM @pars 
+					GROUP BY ParamID
+					HAVING(COUNT(1) > 1)
+					)
+						RAISERROR('Параметры в измерении не должны дублироваться!',16,12);				
+				END									
+			END
+			
+			IF @Mode IN (0,1)
+			BEGIN
+				--left join dbo.MonitoringParams AS mp on mp.MonitoringParamID = c.value('MonitoringParamID[1]','bigint')
+				BEGIN TRAN
+					IF @Mode = 1
 					BEGIN
-						insert into @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
-							select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,pvt.Scale
-							FROM dbo.Params AS p
-							JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
-							WHERE ParamID = @rParameterID
-						SET @rc += 1;
-					END
-					set @id += 1
-				END	
-				*/			
+						if not exists(select 1 from dbo.Monitorings(updlock) where MonitoringID = @MonitoringID)
+							RAISERROR('Данного измерения по монитору нет.',16,3);
+
+						UPDATE p
+							set OldParamValue = mp.ParamValue
+						FROM @pars as p
+						JOIN dbo.MonitoringParams AS mp(updlock) on mp.MonitoringParamID = p.MonitoringParamID							
+					END;		
+															
+					INSERT INTO @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
+					select 
+						ps.MonitoringParamID,
+						ps.MonitorParamID,
+						ps.ParamID,
+						ps.ParamValue,
+						pvt.Scale
+					FROM @pars AS ps						
+					JOIN dbo.Params AS p (updlock) ON p.ParamID = ps.ParamID
+					JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID
+					WHERE ps.ParamTypeID = 1 -- вычисляемый параметр					
+					set @rc = @@ROWCOUNT
 			END
 			ELSE
-				BEGIN -- удаление
+			BEGIN -- удаление
+				BEGIN TRAN
+					if not exists(select 1 from dbo.Monitorings(updlock) where MonitoringID = @MonitoringID)
+						RAISERROR('Данного измерения по монитору нет.',16,3);
+								
 					INSERT INTO @pars(
 						MonitoringParamID,
 						MonitorParamID,
@@ -308,66 +231,43 @@ BEGIN
 						0, -- удаляем из параметра монитора	
 						p.ParamTypeID,
 						mp.ParamValue 
-					FROM dbo.MonitoringParams AS mp
-					JOIN dbo.Params AS p ON p.ParamID = mp.ParamID					
+					FROM dbo.MonitoringParams (updlock) AS mp
+					JOIN dbo.Params AS p (updlock) ON p.ParamID = mp.ParamID					
 					WHERE mp.MonitoringID = @MonitoringID
-				END					
-			
-			IF @Mode IN (0,1) 
-			BEGIN
-				IF EXISTS(
-					SELECT 1 FROM @pars AS p
-					JOIN dbo.Params AS p2 ON p2.ParamID = p.ParamID AND p2.ParamTypeID = 0
-					WHERE p.ParamValue IS NULL 
-				)
-				BEGIN
-					RAISERROR('Для всех параметров должно быть указано значение измерения!',16,7);	
-				END	
-			END
-					
-			IF @Mode = 0
-			BEGIN
-				if exists(SELECT top 1 1
-				FROM @pars 
-				GROUP BY ParamID
-				HAVING(COUNT(1) > 1)
-				)
-					RAISERROR('Параметры в измерении не должны дублироваться!',16,12);				
-			END
-
-		BEGIN TRAN										
-			-- Расчетные параметры
+			END					
+								
+			-- Расчетные параметры   - расчет значений
 			IF @Mode IN (0,1)
 			BEGIN
 				IF @rc > 0
 				BEGIN
-						INSERT INTO @prel(
-							PrimaryParamID,
-							SecondaryParamID,
-							CalcType,
-							MathOperationID,
-							Scale							
-						)
-						SELECT
-							PrimaryParamID,
-							SecondaryParamID,
-							CalcType,
-							MathOperationID,
-							Scale													 
-						FROM (	
-							SELECT 
-								pr.PrimaryParamID,
-								pr.SecondaryParamID,
-								SUM(p2.ParamTypeID) OVER(PARTITION BY pr.[PrimaryParamID]) AS CalcType,
-								pr.MathOperationID,
-								p.Scale
-							FROM dbo.ParamRelations AS pr
-							JOIN @parc AS p ON p.ParamID = pr.PrimaryParamID
-							JOIN @pars AS p2 ON p2.ParamID = pr.SecondaryParamID																		
-						) AS p	
-						ORDER BY p.CalcType -- сортируем по наличию в связанных параметрах вычисляемых типов - сначала вычисляем все расчетные параметры, на основании простых
-						SET @rl = @@ROWCOUNT
-						SELECT @id = 1,@ParamID = -1,@ParamCalcValue = 0; 
+					INSERT INTO @prel(
+						PrimaryParamID,
+						SecondaryParamID,
+						CalcType,
+						MathOperationID,
+						Scale							
+					)
+					SELECT
+						PrimaryParamID,
+						SecondaryParamID,
+						CalcType,
+						MathOperationID,
+						Scale													 
+					FROM (	
+						SELECT 
+							pr.PrimaryParamID,
+							pr.SecondaryParamID,
+							SUM(p2.ParamTypeID) OVER(PARTITION BY pr.[PrimaryParamID]) AS CalcType,
+							pr.MathOperationID,
+							p.Scale
+						FROM dbo.ParamRelations AS pr (updlock)
+						JOIN @parc AS p ON p.ParamID = pr.PrimaryParamID
+						JOIN @pars AS p2 ON p2.ParamID = pr.SecondaryParamID																		
+					) AS p	
+					ORDER BY p.CalcType -- сортируем по наличию в связанных параметрах вычисляемых типов - сначала вычисляем все расчетные параметры, на основании простых
+					SET @rl = @@ROWCOUNT
+					SELECT @id = 1,@ParamID = -1,@ParamCalcValue = 0; 
 					WHILE(1=1)
 					BEGIN
 						IF @id <= @rl
@@ -549,14 +449,14 @@ BEGIN
 			END
 			ELSE					 
 			IF @Mode = 2
-			BEGIN
+			BEGIN			
 				DELETE FROM dbo.MonitoringParams	
 				WHERE 	
 				MonitoringID		= @MonitoringID
 
 				DELETE FROM dbo.Monitorings			
 				WHERE 	
-				MonitoringID		= @MonitoringID				
+				MonitoringID		= @MonitoringID
 			END
 			
 			COMMIT
@@ -571,3 +471,119 @@ BEGIN
 	END CATCH	  
 END
 GO
+
+/*	
+--JSON parsing
+declare		
+	@ind1 bigint=0, @ind2 bigint=0, @id int = 1 
+
+-- значения параметров
+set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
+--DECLARE @rowId INT = 1				
+while(1=1)
+begin
+	set @ind1 = CHARINDEX('"MonitoringParamID":"',@JSON,@ind1)
+	if @ind1 = 0
+		break;
+	set @ind1 += @lMonitoringParamID
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0 
+	BEGIN		
+		IF @Mode = 1
+		BEGIN				
+			RAISERROR('Не определено значение идентификатора записи в измерении!',16,6);	
+			break;
+		END
+		else
+			SET @rMonitoringParamID = NULL
+	END
+	ELSE
+	BEGIN		
+		IF SUBSTRING(@JSON,@ind1,@ind2-@ind1) = ''
+			set @rMonitoringParamID = NULL
+		ELSE
+			set @rMonitoringParamID = SUBSTRING(@JSON,@ind1,@ind2-@ind1);
+	END	
+
+	set @ind1 = CHARINDEX('"MonitorParamID":"',@JSON,@ind1)--+@lMonitorParamID
+	if @ind1 = 0
+	BEGIN
+		RAISERROR('Не определен идентификатор параметра в шаблоне измерения!',16,6);
+		break;						
+	END
+		
+	set @ind1 += @lMonitorParamID
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		RAISERROR('Не определено значение идентификатора параметра в шаблоне измерения!',16,6);	
+		break;
+	END		
+	ELSE
+		set @rMonitorParamID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+
+	set @ind1 = CHARINDEX('"ParameterID":"',@JSON,@ind1)--+@lParameterID
+	if @ind1 = 0
+	BEGIN
+		RAISERROR('Не определен идентификатор параметра!',16,6);
+		break;
+	END;	
+	set @ind1 += @lParameterID
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		RAISERROR('Не определено значение идентификатора параметра!',16,6);	
+		break;
+	END;	
+	set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+	
+	set @ind1 = CHARINDEX('"ParameterTypeID":"',@JSON,@ind1)--+@lParameterID
+	if @ind1 = 0
+	BEGIN
+		RAISERROR('Не определен идентификатор типа параметра!',16,6);
+		break;
+	END;	
+	set @ind1 += @lParameterTypeID
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		RAISERROR('Не определен тип параметра!',16,6);	
+		break;
+	END;	
+	set @rParameterTypeID = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+
+	SET @sParameterValue = '"ParameterValue'+CAST(@id AS NVARCHAR(255))+'":"';
+	SET @lParameterValue = LEN(@sParameterValue);
+	 
+	set @ind1 = CHARINDEX(@sParameterValue,@JSON,@ind2)--+@lParameterValue
+	if @ind1 = 0
+	BEGIN
+		RAISERROR('Не указан идентификатор значения параметра!',16,7);	
+		break;
+	END;
+	set @ind1 += @lParameterValue						
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		set @rParameterValue = NULL -- для расчетных значений
+		--RAISERROR('Не указано значение параметра!',16,8);	
+		--break;
+	END						
+	set @rParameterValue  = REPLACE(nullif(SUBSTRING(@JSON,@ind1,@ind2-@ind1),''),@comma,@point);
+	
+	insert into @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID,OldParamValue)
+		select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,@rParameterTypeID,
+		(SELECT mp.ParamValue FROM dbo.MonitoringParams AS mp where @rMonitoringParamID IS NOT NULL and mp.MonitoringParamID = @rMonitoringParamID) -- считываем текущее значение параметра монитора
+	SET @rs += 1;	
+	IF @rParameterTypeID = 1
+	BEGIN
+		insert into @parc(MonitoringParamID,MonitorParamID,ParamID,ParamValue,Scale)
+			select @rMonitoringParamID,@rMonitorParamID,@rParameterID,@rParameterValue,pvt.Scale
+			FROM dbo.Params AS p
+			JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
+			WHERE ParamID = @rParameterID
+		SET @rc += 1;
+	END
+	set @id += 1
+END	
+*/			
