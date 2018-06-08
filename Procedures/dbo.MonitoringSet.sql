@@ -80,13 +80,6 @@ BEGIN
 		BEGIN
 			IF @MonitoringID IS NULL
 				RAISERROR('Не указано измерение по монитору.',16,3);
-
-			IF @MonitorID IS NULL
-			BEGIN	 
-				SELECT @MonitorID = MonitorID FROM dbo.MonitoringParams AS mp
-				JOIN dbo.MonitorParams AS mp2 ON mp2.MonitorParamID = mp.MonitorParamID
-				WHERE mp.MonitoringID = @MonitoringID
-			END
 				
 			IF @MonitoringDate IS NULL	 
 				RAISERROR('Не установлено время измерения.',16,4);
@@ -94,9 +87,6 @@ BEGIN
 			IF @MonitoringParams IS NULL
 				RAISERROR('Нет параметров измерения.',16,5);
 				
-			IF EXISTS(SELECT 1 FROM dbo.Monitorings WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
-			AND MonitoringID != IsNull(@MonitoringID,0)) 
-				RAISERROR('Уже есть измерение с такой датой и временем!',16,6);
 		END
 
 		-- параметры
@@ -149,7 +139,7 @@ BEGIN
 				
 			IF @Mode IN (0,1) 
 			BEGIN								
-				INSERT INTO @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID,OldParamValue)	
+				INSERT INTO @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID)	
 				select 
 					c.value('MonitoringParamID[1]','bigint')		AS MonitoringParamID,
 					c.value('MonitorParamID[1]','bigint')			AS MonitorParamID,
@@ -186,6 +176,17 @@ BEGIN
 			BEGIN
 				--left join dbo.MonitoringParams AS mp on mp.MonitoringParamID = c.value('MonitoringParamID[1]','bigint')
 				BEGIN TRAN
+				
+					IF @MonitorID IS NULL
+					BEGIN	 
+						SELECT @MonitorID = MonitorID FROM dbo.Monitorings (updlock) AS mp
+						WHERE mp.MonitoringID = @MonitoringID
+					END
+				
+					IF EXISTS(SELECT 1 FROM dbo.Monitorings (updlock) WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
+					AND MonitoringID != IsNull(@MonitoringID,0)) 
+						RAISERROR('Уже есть измерение с такой датой и временем!',16,6);
+						
 					IF @Mode = 1
 					BEGIN
 						if not exists(select 1 from dbo.Monitorings(updlock) where MonitoringID = @MonitoringID)

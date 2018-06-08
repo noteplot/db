@@ -22,6 +22,17 @@ BEGIN
 						
 	BEGIN TRY
 		BEGIN TRAN
+			IF NOT EXISTS(
+				SELECT 1 FROM dbo.Monitors (updlock) 
+				WHERE 
+				MonitorID = @MonitorID			
+				AND LoginID	= @LoginID 				
+			)	
+				RAISERROR('Монитор не существует!',16,1);
+				
+			IF EXISTS(SELECT 1 FROM dbo.Monitorings AS m (updlock) WHERE m.MonitorID = @MonitorID)
+				RAISERROR('По данному монитору есть измерения!',16,2);
+				
 			DELETE v 
 			FROM dbo.MonitorTotalParamValues AS v
 			JOIN dbo.MonitorParams AS p ON p.MonitorID = @MonitorID AND p.MonitorParamID = v.MonitorParamID
