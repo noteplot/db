@@ -21,10 +21,9 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
-		@ErrorMessage NVARCHAR(4000);  
-		--@ErrorSeverity INT,  
-		--@ErrorState INT,
-		--@ErrorProcedure NVARCHAR(255);  
+		@ErrorMessage NVARCHAR(4000),
+		@ErrorSeverity INT,	
+		@ErrorState INT	   		
     			
 	BEGIN TRY
 		
@@ -32,58 +31,61 @@ BEGIN
 		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
-		
-		IF @Mode = 0 
-		BEGIN
-			IF EXISTS(SELECT 1 FROM dbo.ParameterGroups WHERE ParameterGroupShortName = @ParameterGroupShortName AND LoginID = @LoginID)
-				RAISERROR('Уже есть группа с таким названием!',16,2);
-			INSERT INTO dbo.ParameterGroups
-			(			
-				ParameterGroupShortName,
-				ParameterGroupName,
-				LoginID
-			)
-			VALUES
-			(
-				@ParameterGroupShortName,
-				@ParameterGroupName,
-				@LoginID
-			)
-			SET @ParameterGroupID = SCOPE_IDENTITY();  	
-		END
-		ELSE
-		IF @Mode = 1
-		BEGIN
-			IF EXISTS(SELECT 1 FROM dbo.ParameterGroups WHERE ParameterGroupShortName = @ParameterGroupShortName AND LoginID = @LoginID
-			AND ParameterGroupID != @ParameterGroupID)
-				RAISERROR('Уже есть группа с таким названием!',16,2);
-					
-			UPDATE dbo.ParameterGroups
-			SET
-				ParameterGroupShortName = @ParameterGroupShortName,
-				ParameterGroupName = @ParameterGroupName				
-			WHERE 	
-				 ParameterGroupID = @ParameterGroupID
-				 AND LoginID = @LoginID
-		END				 
-		ELSE					 
-		IF @Mode = 2
-		BEGIN
-			IF EXISTS(SELECT 1 FROM dbo.Parameters AS p WHERE p.ParameterGroupID = @ParameterGroupID) 
+		BEGIN TRAN
+			IF @Mode = 0 
 			BEGIN
-				RAISERROR('Данная группа используется в параметрах!',16,2);
+				IF EXISTS(SELECT 1 FROM dbo.ParameterGroups WHERE ParameterGroupShortName = @ParameterGroupShortName AND LoginID = @LoginID)
+					RAISERROR('Уже есть группа с таким названием!',16,2);
+					
+				INSERT INTO dbo.ParameterGroups
+				(			
+					ParameterGroupShortName,
+					ParameterGroupName,
+					LoginID
+				)
+				VALUES
+				(
+					@ParameterGroupShortName,
+					@ParameterGroupName,
+					@LoginID
+				)
+				SET @ParameterGroupID = SCOPE_IDENTITY();  	
 			END
+			ELSE
+			IF @Mode = 1
+			BEGIN
+				IF EXISTS(SELECT 1 FROM dbo.ParameterGroups (updlock) WHERE ParameterGroupShortName = @ParameterGroupShortName AND LoginID = @LoginID
+				AND ParameterGroupID != @ParameterGroupID)
+					RAISERROR('Уже есть группа с таким названием!',16,2);
+					
+				UPDATE dbo.ParameterGroups
+				SET
+					ParameterGroupShortName = @ParameterGroupShortName,
+					ParameterGroupName = @ParameterGroupName				
+				WHERE 	
+					 ParameterGroupID = @ParameterGroupID
+					 AND LoginID = @LoginID
+			END				 
+			ELSE					 
+			IF @Mode = 2
+			BEGIN
+				IF EXISTS(SELECT 1 FROM dbo.Parameters AS p (updlock) WHERE p.ParameterGroupID = @ParameterGroupID) 
+				BEGIN
+					RAISERROR('Данная группа используется в параметрах!',16,2);
+				END
 					 
-			DELETE FROM dbo.ParameterGroups
-			WHERE 	
-				 ParameterGroupID = @ParameterGroupID
-				 AND LoginID = @LoginID
-		end		 
+				DELETE FROM dbo.ParameterGroups
+				WHERE 	
+					 ParameterGroupID = @ParameterGroupID
+					 AND LoginID = @LoginID
+			END
+		COMMIT			 
 	END TRY
 	BEGIN CATCH
-		SET @ErrorMessage = ERROR_MESSAGE();				
-		RAISERROR(@ErrorMessage,16,3);
-		/* 
+		IF @@TRANCOUNT != 0 
+			ROLLBACK;
+		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
+		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);		/* 
 			SELECT
 				ERROR_NUMBER() AS ErrorNumber,
 				ERROR_SEVERITY() AS ErrorSeverity,
