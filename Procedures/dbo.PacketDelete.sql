@@ -34,10 +34,8 @@ BEGIN
 			WHERE mp.ParameterID = @PacketID			
 			IF @@ROWCOUNT != 0 
 			BEGIN
-				SET @ErrorMessage = 'Нельзя удалить пакет, т.к. он используется в мониторе. ';					
-				IF @MonitorShortName IS NOT NULL
-						set @ErrorMessage += 'см.монитор "'+@MonitorShortName+'".'
-				RAISERROR(@ErrorMessage,16,1);
+				SET @ErrorMessage = 'Данный пакет входит в монитор %s. Перед удалением необходимо исключить его из монитора.. ';					
+				RAISERROR(@ErrorMessage,16,1,@MonitorShortName);
 			END
 						
 			DELETE FROM dbo.PacketParams
