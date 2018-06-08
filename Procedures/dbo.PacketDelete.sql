@@ -13,15 +13,33 @@ GO
 
 ALTER PROCEDURE dbo.PacketDelete 
 	@PacketID		BIGINT,
-	@LoginID			BIGINT
+	@LoginID		BIGINT
 AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
-		@ErrorMessage NVARCHAR(4000);
+		@ErrorMessage NVARCHAR(4000),
+		@ErrorSeverity INT,	
+		@ErrorState INT
+			   		
+	DECLARE 
+		@MonitorShortName NVARCHAR(255)		
 						
 	BEGIN TRY
 		BEGIN TRAN
+			select top 1 
+				@MonitorShortName = m.MonitorShortName 
+			FROM dbo.MonitorParams AS mp (holdlock)
+			JOIN dbo.Monitors AS m ON m.MonitorID = mp.MonitorID
+			WHERE mp.ParameterID = @PacketID			
+			IF @@ROWCOUNT != 0 
+			BEGIN
+				SET @ErrorMessage = 'Нельзя удалить пакет, т.к. он используется в мониторе. ';					
+				IF @MonitorShortName IS NOT NULL
+						set @ErrorMessage += 'см.монитор "'+@MonitorShortName+'".'
+				RAISERROR(@ErrorMessage,16,1);
+			END
+						
 			DELETE FROM dbo.PacketParams
 			WHERE 	
 					PacketID = @PacketID
@@ -40,8 +58,8 @@ BEGIN
 	BEGIN CATCH
 		IF @@TRANCOUNT <> 0 
 			ROLLBACK;
-		SET @ErrorMessage = ERROR_MESSAGE();				
-		RAISERROR(@ErrorMessage,16,4);
+		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
+		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
 		/* 
 			SELECT
 				ERROR_NUMBER() AS ErrorNumber,

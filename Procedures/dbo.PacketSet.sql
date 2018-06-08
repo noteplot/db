@@ -22,14 +22,13 @@ IF OBJECT_ID('[dbo].[PacketSet]', 'P') is null
 GO
 
 ALTER PROCEDURE dbo.PacketSet 
-@PacketID			BIGINT out,
+	@PacketID			BIGINT out,
 	@PacketShortName	NVARCHAR(24),
 	@PacketName			NVARCHAR(48),
 	@ParameterGroupID	BIGINT,
 	@LoginID			BIGINT,
 	@Active				BIT = 1,
 	@PacketParameters	XML = NULL,
-	--@JSON				VARCHAR(MAX) = NULL,			
 	@Mode				TINYINT	
 AS
 BEGIN
@@ -38,23 +37,61 @@ BEGIN
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
 		@ErrorState INT	   		
-		--@lParameter int = LEN('"ParameterID":"'),
-		--@lPacketParameterActive int = LEN('"PacketParameterActive":"'),
-		--@rParameterID BIGINT,@rPacketParameterActive BIT
+
+	DECLARE
+		@rls table (
+			PacketParamPosition INT NOT NULL IDENTITY(1,1),
+			ParameterID bigint NOT NULL,
+			Active BIT NOT NULL
+		)
 		
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
 		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
 		END
+
+		IF @Mode in (1,2)
+		BEGIN
+			IF @PacketID IS NULL
+				RAISERROR('Пакет не определен!',16,2);
+		END			
+
+		IF @Mode in (0,1) 
+		BEGIN 
+			IF @PacketParameters IS NULL
+				RAISERROR('Должен быть указан хотя бы один параметр!',16,3);
+				
+				INSERT INTO @rls(ParameterID, Active)	
+				select 
+					c.value('ParameterID[1]','bigint') AS ParameterID,
+					c.value('PacketParameterActive[1]','bit') AS Active
+				from 
+					@PacketParameters.nodes('/PacketParameters/PacketParameter') t(c)					
+									
+			IF @@ROWCOUNT = 0
+				RAISERROR('Должен быть указан хотя бы один параметр!',16,4);
+														
+			if exists(SELECT 1
+				FROM @rls 
+				GROUP BY ParameterID
+				HAVING(COUNT(1) > 1)
+			)
+				RAISERROR('Параметры не должны дублироваться!',16,5);
+				
+		END
+		
 		BEGIN TRAN
-			IF @Mode in (0,1) and /*@JSON*/@PacketParameters IS NULL 
-				RAISERROR('Должен быть указан хотя бы один параметр!',16,2);
-			
+			IF @Mode in (1,2)
+			BEGIN
+				IF NOT EXISTS (SELECT 1 FROM dbo.Packets (updlock) WHERE PacketID = @PacketID)
+					RAISERROR('Такого пакета нет!',16,6);
+			END;
+				
 			IF @Mode = 0 
 			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.Packets WHERE LoginID = @LoginID AND PacketShortName = @PacketShortName)
-					RAISERROR('Уже есть пакет с таким названием!',16,3);				
+				IF EXISTS(SELECT 1 FROM dbo.Packets (holdlock) WHERE LoginID = @LoginID AND PacketShortName = @PacketShortName)
+					RAISERROR('Уже есть пакет с таким названием!',16,7);				
 				
 				INSERT INTO dbo.Parameters(ParameterKindID,ParameterGroupID)
 				VALUES(1,@ParameterGroupID)
@@ -78,10 +115,6 @@ BEGIN
 			ELSE
 			IF @Mode = 1
 			BEGIN
-				IF @PacketID IS NULL
-					RAISERROR('Пакет не определен!',16,4);
-				IF EXISTS(SELECT 1 FROM dbo.Packets WHERE PacketID != @PacketID and LoginID = @LoginID and PacketShortName = @PacketShortName )
-					RAISERROR('Уже есть пакет с таким названием!',16,5);
 
 				UPDATE dbo.Parameters
 				SET 					
@@ -99,77 +132,11 @@ BEGIN
 				WHERE PacketID = @PacketID						
 			END
 			ELSE					 
-			IF @Mode = 2
-				DELETE FROM dbo.Packets	-- AFTER trigger
-				WHERE 	
-					 PacketID = @PacketID AND 
-					 LoginID = @LoginID
-			
-			IF @Mode IN (0,1) AND /*@JSON*/@PacketParameters IS NOT NULL 
-			BEGIN
-				declare
-					@rls table (
-						PacketParamPosition INT NOT NULL IDENTITY(1,1),
-						ParameterID bigint NOT NULL,
-						Active BIT NOT NULL
-					)
-					
-					INSERT INTO @rls(ParameterID, Active)	
-					select 
-						c.value('ParameterID[1]','bigint') AS ParameterID,
-						c.value('PacketParameterActive[1]','bit') AS Active
-					from 
-						@PacketParameters.nodes('/PacketParameters/PacketParameter') t(c)					
-				/*	
-				declare		
-					@ind1 bigint=0, @ind2 bigint=0, @id int = 0
-
-				set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
-				while(1=1)
-				begin
-					set @ind1 = CHARINDEX('"ParameterID":"',@JSON,@ind1)
-					if @ind1 = 0
-						break;
-					set @ind1 += @lParameter
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						RAISERROR('Не определен идентификатор параметра!',16,6);	
-						break;
-					END;	
-					set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1) 
-					set @ind1 = CHARINDEX('"PacketParameterActive":"',@JSON,@ind2)+@lPacketParameterActive
-					if @ind1 = 0
-					BEGIN
-						RAISERROR('Не указан признак достyпности параметра!',16,7);	
-						break;
-					END;						
-					set @ind2 = CHARINDEX('"',@JSON,@ind1);
-					if @ind2 = 0
-					BEGIN
-						RAISERROR('Нет данных по достyпности параметра!',16,8);	
-						break;
-					END;						
-					set @rPacketParameterActive  = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
-					insert into @rls(ParameterID,Active)
-						select @rParameterID,@rPacketParameterActive						
-					set @id += 1
-				END
-				
-				IF @id = 0
-					RAISERROR('Должен быть указан хотя бы один параметр!',16,9);
-				*/
+				IF @Mode = 2
+						exec dbo.PacketDelete @PacketID, @LoginID
 									
-				IF @@ROWCOUNT = 0
-					RAISERROR('Должен быть указан хотя бы один параметр!',16,9);
-														
-				if exists(SELECT 1
-					FROM @rls 
-					GROUP BY ParameterID
-					HAVING(COUNT(1) > 1)
-				)
-					RAISERROR('Параметры не должны дублироваться!',16,12);
-				
+			IF @Mode IN (0,1) AND @PacketParameters IS NOT NULL 
+			BEGIN									
 				MERGE dbo.PacketParams AS t
 				USING (SELECT @PacketID as PacketID, ParameterID, Active,PacketParamPosition FROM @rls) AS s 
 				ON (t.PacketID = s.PacketID AND t.ParamID = s.ParameterID)
@@ -193,3 +160,48 @@ BEGIN
 	END CATCH	  
 END
 GO
+
+/*
+--@JSON				VARCHAR(MAX) = NULL,			
+--@lParameter int = LEN('"ParameterID":"'),
+--@lPacketParameterActive int = LEN('"PacketParameterActive":"'),
+--@rParameterID BIGINT,@rPacketParameterActive BIT
+ 	
+declare		
+	@ind1 bigint=0, @ind2 bigint=0, @id int = 0
+
+set @JSON = REPLACE(REPLACE(REPLACE(REPLACE(@JSON, char(10), ''),CHAR(13),''),CHAR(9),''),CHAR(32),'');
+while(1=1)
+begin
+	set @ind1 = CHARINDEX('"ParameterID":"',@JSON,@ind1)
+	if @ind1 = 0
+		break;
+	set @ind1 += @lParameter
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		RAISERROR('Не определен идентификатор параметра!',16,6);	
+		break;
+	END;	
+	set @rParameterID = SUBSTRING(@JSON,@ind1,@ind2-@ind1) 
+	set @ind1 = CHARINDEX('"PacketParameterActive":"',@JSON,@ind2)+@lPacketParameterActive
+	if @ind1 = 0
+	BEGIN
+		RAISERROR('Не указан признак достyпности параметра!',16,7);	
+		break;
+	END;						
+	set @ind2 = CHARINDEX('"',@JSON,@ind1);
+	if @ind2 = 0
+	BEGIN
+		RAISERROR('Нет данных по достyпности параметра!',16,8);	
+		break;
+	END;						
+	set @rPacketParameterActive  = SUBSTRING(@JSON,@ind1,@ind2-@ind1)
+	insert into @rls(ParameterID,Active)
+		select @rParameterID,@rPacketParameterActive						
+	set @id += 1
+END
+				
+IF @id = 0
+	RAISERROR('Должен быть указан хотя бы один параметр!',16,9);
+*/
