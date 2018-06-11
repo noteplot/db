@@ -78,7 +78,7 @@ BEGIN
 		END							
 		IF @Mode IN (0,1)
 		BEGIN
-			IF @MonitoringID IS NULL
+			IF @Mode = 1 AND @MonitoringID IS NULL
 				RAISERROR('Не указано измерение по монитору.',16,3);
 				
 			IF @MonitoringDate IS NULL	 
@@ -177,13 +177,13 @@ BEGIN
 				--left join dbo.MonitoringParams AS mp on mp.MonitoringParamID = c.value('MonitoringParamID[1]','bigint')
 				BEGIN TRAN
 				
-					IF @MonitorID IS NULL
+					IF @MonitorID IS NULL AND @Mode = 1
 					BEGIN	 
 						SELECT @MonitorID = MonitorID FROM dbo.Monitorings (updlock) AS mp
 						WHERE mp.MonitoringID = @MonitoringID
 					END
 				
-					IF EXISTS(SELECT 1 FROM dbo.Monitorings (updlock) WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
+					IF EXISTS(SELECT 1 FROM dbo.Monitorings (holdlock) WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
 					AND MonitoringID != IsNull(@MonitoringID,0)) 
 						RAISERROR('Уже есть измерение с такой датой и временем!',16,6);
 						
@@ -262,7 +262,7 @@ BEGIN
 							SUM(p2.ParamTypeID) OVER(PARTITION BY pr.[PrimaryParamID]) AS CalcType,
 							pr.MathOperationID,
 							p.Scale
-						FROM dbo.ParamRelations AS pr (updlock)
+						FROM dbo.ParamRelations AS pr (holdlock)
 						JOIN @parc AS p ON p.ParamID = pr.PrimaryParamID
 						JOIN @pars AS p2 ON p2.ParamID = pr.SecondaryParamID																		
 					) AS p	
@@ -339,10 +339,10 @@ BEGIN
 				pr.MathOperationID,
 				pvt.Scale	
 			FROM dbo.MonitorParams AS mp
-			JOIN dbo.Params AS p ON p.ParamID = mp.ParameterID AND p.ParamTypeID = 2
-			JOIN dbo.ParamRelations AS pr ON pr.PrimaryParamID = mp.ParameterID
+			JOIN dbo.Params AS p (holdlock) ON p.ParamID = mp.ParameterID AND p.ParamTypeID = 2
+			JOIN dbo.ParamRelations AS pr (holdlock) ON pr.PrimaryParamID = mp.ParameterID
 			JOIN @pars AS ps ON ps.ParamID = pr.SecondaryParamID
-			JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID 
+			JOIN dbo.ParamValueTypes AS pvt (holdlock) ON pvt.ParamValueTypeID = p.ParamValueTypeID 
 			WHERE mp.MonitorID = @MonitorID AND mp.[Active] = 1 
 			
 			SET @rt = @@ROWCOUNT
