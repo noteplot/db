@@ -55,7 +55,7 @@ BEGIN
 			par.ParameterID,
 			case
 				when p.ParamTypeID = 0 then cast(null as decimal(28,6))
-				else 0
+				else NULL
 			end as ParameterValue,
 			p.ParamShortName AS ParameterShortName,
 			p.ParamName AS ParameterName,
