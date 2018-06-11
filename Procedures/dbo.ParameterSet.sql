@@ -105,12 +105,16 @@ BEGIN
 		BEGIN TRAN			
 			IF @Mode in (0,1)
 			BEGIN
-				IF NOT EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamID = @ParameterID AND LoginID = @LoginID)
-					RAISERROR('”казанный параметр не существует!',16,3);
-					 
-				IF EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
-					RAISERROR('”же есть параметр с таким названием!',16,3);
-
+				IF @Mode = 1
+				BEGIN
+					IF NOT EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamID = @ParameterID AND LoginID = @LoginID)
+						RAISERROR('”казанный параметр не существует!',16,3);
+				END	 
+				IF @Mode = 0
+				BEGIN
+					IF EXISTS(SELECT 1 FROM dbo.Params (holdlock) WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
+						RAISERROR('”же есть параметр с таким названием!',16,3);
+				END	 
 			END
 			-- изменение типа параметра	
 			IF @Mode = 1 AND @ParamTypeID = 0 AND (EXISTS(SELECT 1 FROM dbo.Params AS p (updlock) WHERE p.ParamID = @ParameterID AND p.ParamTypeID != @ParamTypeID))
@@ -121,9 +125,9 @@ BEGIN
 				SELECT 
 					@MonitorShortName = m.MonitorShortName  
 				FROM dbo.MonitoringParams AS mps (updlock)
-				JOIN dbo.Monitorings AS ms (updlock) ON ms.MonitoringID = mps.MonitoringID
-				JOIN dbo.Monitors AS m (updlock) ON m.MonitorID = ms.MonitorID
-				JOIN dbo.MonitorParams AS mp (updlock) ON mp.MonitorID = m.MonitorID				 
+				JOIN dbo.Monitorings AS ms (holdlock) ON ms.MonitoringID = mps.MonitoringID
+				JOIN dbo.Monitors AS m (holdlock) ON m.MonitorID = ms.MonitorID
+				JOIN dbo.MonitorParams AS mp (holdlock) ON mp.MonitorID = m.MonitorID				 
 				WHERE mps.ParamID = @ParameterID
 				IF @MonitorShortName IS NOT NULL
 				BEGIN
