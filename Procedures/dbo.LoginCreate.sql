@@ -15,7 +15,7 @@ ALTER PROCEDURE [dbo].[LoginCreate]
 @LoginName		NVARCHAR(64),
 @Password		NVARCHAR(128),
 @Email			NVARCHAR(64) = null,
-@LoginRoleID	INT = NULL,
+@LoginRoleID	INT = 2,
 @ScreenName		NVARCHAR(64) = NULL,
 @ShowScreenName BIT = 0,
 @LoginID		BIGINT OUTPUT
@@ -38,7 +38,7 @@ BEGIN
 			END
 				
 			if @LoginRoleID is null
-				set @LoginRoleID = 3
+				set @LoginRoleID = 2
 			
 			IF @LoginID IS NULL
 			BEGIN				
