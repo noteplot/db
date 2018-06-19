@@ -54,7 +54,11 @@ BEGIN
 			par.MonitorParamID,
 			par.ParameterID,
 			case
-				when p.ParamTypeID = 0 then cast(null as decimal(28,6))
+				when p.ParamTypeID = 0 THEN
+					CASE
+						WHEN p.ParamValueMAX = p.ParamValueMIN THEN p.ParamValueMIN
+						ELSE cast(null as decimal(28,6))
+					end	
 				else NULL
 			end as ParameterValue,
 			p.ParamShortName AS ParameterShortName,

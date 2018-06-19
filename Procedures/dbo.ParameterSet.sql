@@ -58,8 +58,8 @@ BEGIN
 				RAISERROR('Для данного типа должен быть указан хотя бы один связанный параметр!',16,2);
 			IF @ParamValueMAX IS NOT NULL AND @ParamValueMIN IS NOT NULL 
 			BEGIN
-				IF @ParamValueMAX <= @ParamValueMIN 
-				RAISERROR('Максимальное значение должно быть больше минимального!',16,5);
+				IF @ParamValueMAX < @ParamValueMIN 
+				RAISERROR('Максимальное значение должно быть не меньше минимального!',16,5);
 			END								
 		END
 		
