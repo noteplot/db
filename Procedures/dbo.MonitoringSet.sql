@@ -63,8 +63,10 @@ BEGIN
 		@ParamCalcValue  DECIMAL(28,6) = 0,
 		@RelationParamValue  DECIMAL(28,6),
 		@OldRelationParamValue  DECIMAL(28,6),						
-		@Scale TINYINT = 0;
-								
+		@Scale TINYINT = 0,								
+		@ParameterName1 NVARCHAR(255), 
+		@ParameterName2 NVARCHAR(255);
+										
 	BEGIN TRY
 		-- ПРОВЕРКИ
 		IF @Mode NOT IN (0,1,2)
@@ -168,7 +170,7 @@ BEGIN
 					GROUP BY ParamID
 					HAVING(COUNT(1) > 1)
 					)
-						RAISERROR('Параметры в измерении не должны дублироваться!',16,12);				
+						RAISERROR('Параметры в измерении не должны дублироваться!',16,8);				
 				END									
 			END
 			
@@ -185,12 +187,12 @@ BEGIN
 				
 					IF EXISTS(SELECT 1 FROM dbo.Monitorings (holdlock) WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
 					AND MonitoringID != IsNull(@MonitoringID,0)) 
-						RAISERROR('Уже есть измерение с такой датой и временем!',16,6);
+						RAISERROR('Уже есть измерение с такой датой и временем!',16,9);
 						
 					IF @Mode = 1
 					BEGIN
 						if not exists(select 1 from dbo.Monitorings(updlock) where MonitoringID = @MonitoringID)
-							RAISERROR('Данного измерения по монитору нет.',16,3);
+							RAISERROR('Данного измерения по монитору нет.',16,10);
 
 						UPDATE p
 							set OldParamValue = mp.ParamValue
@@ -215,7 +217,7 @@ BEGIN
 			BEGIN -- удаление
 				BEGIN TRAN
 					if not exists(select 1 from dbo.Monitorings(updlock) where MonitoringID = @MonitoringID)
-						RAISERROR('Данного измерения по монитору нет.',16,3);
+						RAISERROR('Данного измерения по монитору нет.',16,11);
 								
 					INSERT INTO @pars(
 						MonitoringParamID,
@@ -289,7 +291,7 @@ BEGIN
 							IF @ParamID != -1
 							begin
 								UPDATE @pars
-									SET ParamValue = ROUND(@ParamCalcValue,@Scale) -- окуругляем по scale
+									SET ParamValue = ROUND(@ParamCalcValue,@Scale) -- округляем по scale
 								WHERE ParamID = @ParamID
 							end
 							IF (@id > @rl) BREAK;
@@ -299,22 +301,61 @@ BEGIN
 							SET @ParamID = @ParamNewID;
 							SET @ParamCalcValue = 0;
 						END							
-													
-						IF @MathOperationID = 1
-						BEGIN
-							SET @ParamCalcValue = @ParamCalcValue + @ParamValue;	
-						END
-						ELSE
-							IF @MathOperationID = 2
+						BEGIN TRY							
+							IF @MathOperationID = 1
 							BEGIN
-								SET @ParamCalcValue = @ParamCalcValue - @ParamValue;
-							END	
+								SET @ParamCalcValue = @ParamCalcValue + @ParamValue;	
+							END
 							ELSE
-								IF @MathOperationID = 3
+								IF @MathOperationID = 2
 								BEGIN
-									SET @ParamCalcValue = @ParamCalcValue * @ParamValue;
-								END
-															
+									SET @ParamCalcValue = @ParamCalcValue - @ParamValue;
+								END	
+								ELSE
+									IF @MathOperationID = 3
+									BEGIN									
+										SET @ParamCalcValue = @ParamCalcValue * @ParamValue;
+									END
+									ELSE
+										IF @MathOperationID = 4
+										BEGIN
+											IF (@ParamValue = 0)
+											BEGIN				
+												SET @ErrorMessage = 'Значение связанного параметра в операции "деление" не должно быть равно нулю!'								
+												SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
+												WHERE ParamID = @ParamID								
+												SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
+												WHERE ParamID = @RelationParamID   								
+										
+												IF IsNull(@ParameterName1,'') != ''  
+												SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
+												IF IsNull(@ParameterName2,'') != ''  
+												SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
+												RAISERROR(@ErrorMessage,16,12)																															
+											END;	
+											SET @ParamCalcValue = @ParamCalcValue / @ParamValue;
+										END
+						END TRY
+						BEGIN CATCH
+							SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();
+							IF (ERROR_NUMBER() = 8115)
+							BEGIN
+								SELECT @ParameterName1 = ParamShortName FROM dbo.Params AS p
+								WHERE ParamID = @ParamID								
+								SELECT @ParameterName2 = ParamShortName FROM dbo.Params AS p
+								WHERE ParamID = @RelationParamID   								
+								   
+								SET @ErrorMessage = 'Ошибка арифметического переполнения. Получаемое расчетное значение превысило предельную величину!'
+								IF IsNull(@ParameterName1,'') != ''  
+									SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
+								IF IsNull(@ParameterName2,'') != ''  
+									SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
+									
+								RAISERROR('Значение связанного параметра в операции "деление" не должно быть равно нулю!',@ErrorSeverity,13)
+							END	
+							ELSE 				
+								RAISERROR(@ErrorMessage,@ErrorSeverity,14)								
+						END CATCH															
 						SET @id += 1;	
 					END
 				END
@@ -390,6 +431,7 @@ BEGIN
 						SET @ParamID = @ParamNewID;
 						SET @ParamCalcValue = 0;
 					END			
+					BEGIN TRY
 					IF @MathOperationID = 1
 					BEGIN
 						SET @ParamCalcValue = @ParamCalcValue + (@RelationParamValue - @OldRelationParamValue);	
@@ -404,6 +446,47 @@ BEGIN
 							BEGIN
 								SET @ParamCalcValue = @ParamCalcValue * (@RelationParamValue - @OldRelationParamValue);
 							END
+							ELSE
+								IF @MathOperationID = 4
+								BEGIN
+									IF ((@RelationParamValue - @OldRelationParamValue) = 0)
+									BEGIN							
+										SET @ErrorMessage = 'Изменение значения связанного параметра в операции "деление" не должно быть равно нулю! Операция недопустима.'								
+										SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
+										WHERE ParamID = @ParamID								
+										SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
+										WHERE ParamID = @RelationParamID   								
+										
+										IF IsNull(@ParameterName1,'') != ''  
+										SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
+										IF IsNull(@ParameterName2,'') != ''  
+										SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
+										RAISERROR(@ErrorMessage,16,12)											
+									END;	
+									SET @ParamCalcValue = @ParamCalcValue / (@RelationParamValue - @OldRelationParamValue);
+								END							
+						END TRY
+						BEGIN CATCH
+							SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();
+							IF (ERROR_NUMBER() = 8115)
+							BEGIN								
+								SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
+								WHERE ParamID = @ParamID								
+								SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
+								WHERE ParamID = @RelationParamID   								
+								   
+								SET @ErrorMessage = 'Ошибка арифметического переполнения. Получаемое расчетное значение превысило предельную величину!'
+								IF IsNull(@ParameterName1,'') != ''  
+									SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
+								IF IsNull(@ParameterName2,'') != ''  
+									SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
+									
+								RAISERROR(@ErrorMessage,@ErrorSeverity,13)
+							END	
+							ELSE 				
+								RAISERROR(@ErrorMessage,@ErrorSeverity,14)								
+						END CATCH															
+							
 					SET @id += 1;															
 				END;	
 			END;		
@@ -466,7 +549,7 @@ BEGIN
 	BEGIN CATCH
 		IF @@TRANCOUNT != 0 
 			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
+		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();
 		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
 		RETURN 1
 	END CATCH	  
