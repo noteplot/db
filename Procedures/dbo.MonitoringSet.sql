@@ -432,60 +432,60 @@ BEGIN
 						SET @ParamCalcValue = 0;
 					END			
 					BEGIN TRY
-					IF @MathOperationID = 1
-					BEGIN
-						SET @ParamCalcValue = @ParamCalcValue + (@RelationParamValue - @OldRelationParamValue);	
-					END
-					ELSE
-						IF @MathOperationID = 2
+						IF @MathOperationID = 1
 						BEGIN
-							SET @ParamCalcValue = @ParamCalcValue - (@RelationParamValue - @OldRelationParamValue);
-						END	
+							SET @ParamCalcValue = @ParamCalcValue + (@RelationParamValue - @OldRelationParamValue);	
+						END
 						ELSE
-							IF @MathOperationID = 3
+							IF @MathOperationID = 2
 							BEGIN
-								SET @ParamCalcValue = @ParamCalcValue * (@RelationParamValue - @OldRelationParamValue);
-							END
-							ELSE
-								IF @MathOperationID = 4
-								BEGIN
-									IF ((@RelationParamValue - @OldRelationParamValue) = 0)
-									BEGIN							
-										SET @ErrorMessage = 'Изменение значения связанного параметра в операции "деление" не должно быть равно нулю! Операция недопустима.'								
-										SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
-										WHERE ParamID = @ParamID								
-										SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
-										WHERE ParamID = @RelationParamID   								
-										
-										IF IsNull(@ParameterName1,'') != ''  
-										SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
-										IF IsNull(@ParameterName2,'') != ''  
-										SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
-										RAISERROR(@ErrorMessage,16,12)											
-									END;	
-									SET @ParamCalcValue = @ParamCalcValue / (@RelationParamValue - @OldRelationParamValue);
-								END							
-						END TRY
-						BEGIN CATCH
-							SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();
-							IF (ERROR_NUMBER() = 8115)
-							BEGIN								
-								SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
-								WHERE ParamID = @ParamID								
-								SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
-								WHERE ParamID = @RelationParamID   								
-								   
-								SET @ErrorMessage = 'Ошибка арифметического переполнения. Получаемое расчетное значение превысило предельную величину!'
-								IF IsNull(@ParameterName1,'') != ''  
-									SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
-								IF IsNull(@ParameterName2,'') != ''  
-									SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
-									
-								RAISERROR(@ErrorMessage,@ErrorSeverity,13)
+								SET @ParamCalcValue = @ParamCalcValue - (@RelationParamValue - @OldRelationParamValue);
 							END	
-							ELSE 				
-								RAISERROR(@ErrorMessage,@ErrorSeverity,14)								
-						END CATCH															
+							ELSE
+								IF @MathOperationID = 3
+								BEGIN
+									SET @ParamCalcValue = @ParamCalcValue * (@RelationParamValue - @OldRelationParamValue);
+								END
+								ELSE
+									IF @MathOperationID = 4
+									BEGIN
+										IF ((@RelationParamValue - @OldRelationParamValue) = 0)
+										BEGIN							
+											SET @ErrorMessage = 'Изменение значения связанного параметра в операции "деление" не должно быть равно нулю! Операция недопустима.'								
+											SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
+											WHERE ParamID = @ParamID								
+											SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
+											WHERE ParamID = @RelationParamID   								
+										
+											IF IsNull(@ParameterName1,'') != ''  
+											SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
+											IF IsNull(@ParameterName2,'') != ''  
+											SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
+											RAISERROR(@ErrorMessage,16,12)											
+										END;	
+										SET @ParamCalcValue = @ParamCalcValue / (@RelationParamValue - @OldRelationParamValue);
+									END							
+					END TRY
+					BEGIN CATCH
+						SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();
+						IF (ERROR_NUMBER() = 8115)
+						BEGIN								
+							SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
+							WHERE ParamID = @ParamID								
+							SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
+							WHERE ParamID = @RelationParamID   								
+								   
+							SET @ErrorMessage = 'Ошибка арифметического переполнения. Получаемое расчетное значение превысило предельную величину!'
+							IF IsNull(@ParameterName1,'') != ''  
+								SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
+							IF IsNull(@ParameterName2,'') != ''  
+								SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
+									
+							RAISERROR(@ErrorMessage,@ErrorSeverity,13)
+						END	
+						ELSE 				
+							RAISERROR(@ErrorMessage,@ErrorSeverity,14)								
+					END CATCH															
 							
 					SET @id += 1;															
 				END;	
