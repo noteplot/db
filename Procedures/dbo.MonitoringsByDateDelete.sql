@@ -39,12 +39,12 @@ BEGIN
 		IF @dt1 >= @dt2
 			RAISERROR('Некорректно указан период!',16,1)
 		BEGIN TRAN
-			DELETE mg 
-			FROM dbo.Monitorings AS mg
+			DELETE m
+			FROM dbo.Monitorings AS m
 			WHERE
-				mg.MonitorID = @MonitorID		
-				AND mg.MonitoringDate >= @dt1
-				AND mg.MonitoringDate < @dt2
+				m.MonitorID = @MonitorID		
+				AND m.MonitoringDate >= @dt1
+				AND m.MonitoringDate < @dt2
 				
 			SET @DeletedRows = @@ROWCOUNT;
 							
