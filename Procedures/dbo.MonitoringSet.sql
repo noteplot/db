@@ -449,9 +449,9 @@ BEGIN
 								ELSE
 									IF @MathOperationID = 4
 									BEGIN
-										IF ((@RelationParamValue - @OldRelationParamValue) = 0)
+										IF (@RelationParamValue = 0)
 										BEGIN							
-											SET @ErrorMessage = 'Изменение значения связанного параметра в операции "деление" не должно быть равно нулю! Операция недопустима.'								
+											SET @ErrorMessage = 'Значение связанного параметра в операции "деление" не должно быть равно нулю!';
 											SELECT @ParameterName1 = ParamShortName FROM dbo.Params(nolock) AS p
 											WHERE ParamID = @ParamID								
 											SELECT @ParameterName2 = ParamShortName FROM dbo.Params(nolock) AS p
@@ -461,9 +461,9 @@ BEGIN
 											SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
 											IF IsNull(@ParameterName2,'') != ''  
 											SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
-											RAISERROR(@ErrorMessage,16,12)											
+											RAISERROR(@ErrorMessage,16,15)											
 										END;	
-										SET @ParamCalcValue = @ParamCalcValue / (@RelationParamValue - @OldRelationParamValue);
+										SET @ParamCalcValue = @ParamCalcValue / @RelationParamValue - IIF( @OldRelationParamValue = 0,0,@ParamCalcValue / @OldRelationParamValue);
 									END							
 					END TRY
 					BEGIN CATCH
@@ -481,10 +481,10 @@ BEGIN
 							IF IsNull(@ParameterName2,'') != ''  
 								SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
 									
-							RAISERROR(@ErrorMessage,@ErrorSeverity,13)
+							RAISERROR(@ErrorMessage,@ErrorSeverity,16)
 						END	
 						ELSE 				
-							RAISERROR(@ErrorMessage,@ErrorSeverity,14)								
+							RAISERROR(@ErrorMessage,@ErrorSeverity,17)								
 					END CATCH															
 							
 					SET @id += 1;															
