@@ -42,6 +42,11 @@ BEGIN
 		@ErrorMessage NVARCHAR(4000),
 		@ErrorSeverity INT,	
 		@ErrorState INT
+
+	DECLARE
+		@ResourceLimitID INT = 2, -- кол-во параметров по логину
+		@ResourceValue INT = 0,
+		@ResourceLimitValue INT = 0;
 						
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
@@ -55,18 +60,18 @@ BEGIN
 				RAISERROR('ƒл€ данного типа св€занных параметров не должно быть!',16,2);
 			 
 			if @ParamTypeID IN (1,2) AND @ParameterRelations IS NULL 
-				RAISERROR('ƒл€ данного типа должен быть указан хот€ бы один св€занный параметр!',16,2);
+				RAISERROR('ƒл€ данного типа должен быть указан хот€ бы один св€занный параметр!',16,3);
 			IF @ParamValueMAX IS NOT NULL AND @ParamValueMIN IS NOT NULL 
 			BEGIN
 				IF @ParamValueMAX < @ParamValueMIN 
-				RAISERROR('ћаксимальное значение должно быть не меньше минимального!',16,5);
+				RAISERROR('ћаксимальное значение должно быть не меньше минимального!',16,4);
 			END								
 		END
 		
 		IF @Mode in (1,2)
 		BEGIN 
 			IF @ParameterID IS NULL
-				RAISERROR('ѕараметр не указан!',16,4);
+				RAISERROR('ѕараметр не указан!',16,5);
 		END
 
 		IF @Mode IN (0,1) AND @ParameterRelations IS NOT NULL 
@@ -85,22 +90,44 @@ BEGIN
 					@ParameterRelations.nodes('/ParameterRelations/ParameterRelation') t(c)
 					
 			IF @@ROWCOUNT = 0
-				RAISERROR('ƒолжен быть указан хот€ бы один св€занный параметр!',16,9);
+				RAISERROR('ƒолжен быть указан хот€ бы один св€занный параметр!',16,6);
 				
 			IF EXISTS(
 					SELECT 1 
 					FROM @rls AS r
 					WHERE r.ParameterID = @ParameterID
 			)								
-				RAISERROR('—в€занный параметр не должен совпадать с текущим!',16,10);					
+				RAISERROR('—в€занный параметр не должен совпадать с текущим!',16,7);					
 
 			if exists(
 				SELECT 1 FROM @rls GROUP BY ParameterID
 				HAVING(COUNT(1) > 1)
 			)
-				RAISERROR('—в€занные параметры не должны дублироватьс€!',16,12);
+				RAISERROR('—в€занные параметры не должны дублироватьс€!',16,8);
 		END
+
+		IF @Mode = 0
+		BEGIN
+			IF EXISTS(SELECT 1 FROM dbo.Params (nolock) WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
+				RAISERROR('”же есть параметр с таким названием!',16,9);
+		END	 
+
+		IF @Mode = 1
+		begin 
+			IF EXISTS(SELECT 1 FROM dbo.Params (nolock) WHERE ParamID != @ParameterID and LoginID = @LoginID and ParamShortName = @ParamShortName )
+				RAISERROR('”же есть параметр с таким названием!',16,10);
+		end		
 		
+		
+		IF @Mode = 0 -- проверка лимитов ресурсов
+		begin 
+			SELECT @ResourceValue = IsNull(r.Value,0) FROM dbo.ResourceCounts(nolock) AS r WHERE r.LoginID = @LoginID AND r.ResourceLimitID = @ResourceLimitID
+			SELECT @ResourceLimitValue = ResourceLimitValue from dbo.fnResourceLimitsGet (DEFAULT,@LoginID,@ResourceLimitID)
+			IF @ResourceValue >= @ResourceLimitValue
+			BEGIN				
+				RAISERROR('ƒостигнут предел (%i) количества параметров дл€ вашей учетной записи!',16,11,@ResourceLimitValue);
+			end	
+		end		
 				
 		BEGIN TRAN			
 			IF @Mode in (0,1)
@@ -108,12 +135,7 @@ BEGIN
 				IF @Mode = 1
 				BEGIN
 					IF NOT EXISTS(SELECT 1 FROM dbo.Params (updlock) WHERE ParamID = @ParameterID AND LoginID = @LoginID)
-						RAISERROR('”казанный параметр не существует!',16,3);
-				END	 
-				IF @Mode = 0
-				BEGIN
-					IF EXISTS(SELECT 1 FROM dbo.Params (holdlock) WHERE ParamShortName = @ParamShortName AND LoginID = @LoginID)
-						RAISERROR('”же есть параметр с таким названием!',16,3);
+						RAISERROR('”казанный параметр не существует!',16,12);
 				END	 
 			END
 			-- изменение типа параметра	
@@ -131,7 +153,7 @@ BEGIN
 				WHERE mps.ParamID = @ParameterID
 				IF @MonitorShortName IS NOT NULL
 				BEGIN
-					RAISERROR('»зменить тип параметра нельз€, т. к. он используетс€ в измерени€х по монитору  %s.',16,3, @MonitorShortName);
+					RAISERROR('»зменить тип параметра нельз€, т. к. он используетс€ в измерени€х по монитору  %s.',16,13, @MonitorShortName);
 				end	
 				
 				-- удал€ем св€занные параметры
@@ -213,7 +235,22 @@ BEGIN
 						SET ParamRelationPosition = s.ParamRelationPosition					
 				WHEN NOT MATCHED BY SOURCE and t.PrimaryParamID = @ParameterID THEN
 					DELETE; 												    	         												
-			END					 					
+			END				
+			
+			-- ”величение счетчика +1
+			IF @Mode = 0
+			BEGIN
+				;MERGE dbo.ResourceCounts AS t
+				USING (SELECT @LoginID AS LoginID, @ResourceLimitID AS ResourceLimitID) AS s
+				ON (t.LoginID = s.LoginID AND t.ResourceLimitID = s.ResourceLimitID)
+				WHEN MATCHED THEN 
+					UPDATE
+						SET t.[Value] += 1
+				WHEN NOT MATCHED THEN		 
+					INSERT (LoginID, ResourceLimitID,[Value])
+					VALUES (s.LoginID, s.ResourceLimitID,1);					
+			END																		
+				 					
 			COMMIT			
 	END TRY
 	BEGIN CATCH

@@ -20,6 +20,9 @@ BEGIN
 	DECLARE 
 		@ErrorMessage NVARCHAR(4000);
 						
+	DECLARE
+		@ResourceLimitID INT = 2; -- кол-во параметров по логину
+						
 	BEGIN TRY
 		BEGIN TRAN
 			IF EXISTS(SELECT 1 FROM dbo.PacketParams WHERE ParamID = @ParameterID)
@@ -46,6 +49,11 @@ BEGIN
 			DELETE FROM dbo.Parameters
 			WHERE 	
 					ParameterID = @ParameterID
+							
+			-- уменьшение счетчика
+			UPDATE dbo.ResourceCounts
+				SET [Value] -= 1
+			WHERE LoginID = @LoginID AND ResourceLimitID = @ResourceLimitID
 										
 			COMMIT			
 	END TRY

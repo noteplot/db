@@ -92,6 +92,12 @@ BEGIN
 				RAISERROR('Уже есть пакет с таким названием!',16,6);				
 		END		
 
+		IF @Mode = 1
+		begin 
+			IF EXISTS(SELECT 1 FROM dbo.Packets (nolock) WHERE PacketID != @PacketID and LoginID = @LoginID and PacketShortName = @PacketShortName )
+				RAISERROR('Уже есть пакет с таким названием!',16,5);
+		end		
+
 		IF @Mode = 0 -- проверка лимитов ресурсов
 		begin 
 			SELECT @ResourceValue = IsNull(r.Value,0) FROM dbo.ResourceCounts(nolock) AS r WHERE r.LoginID = @LoginID AND r.ResourceLimitID = @ResourceLimitID
