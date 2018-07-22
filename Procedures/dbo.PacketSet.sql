@@ -45,6 +45,11 @@ BEGIN
 			Active BIT NOT NULL
 		)
 		
+	DECLARE
+		@ResourceLimitID INT = 3, -- кол-во пакетов по логину
+		@ResourceValue INT = 0,
+		@ResourceLimitValue INT = 0;
+		
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
 		BEGIN
@@ -80,19 +85,32 @@ BEGIN
 				RAISERROR('Параметры не должны дублироваться!',16,5);
 				
 		END
-		
+
+		IF @Mode = 0 
+		BEGIN
+			IF EXISTS(SELECT 1 FROM dbo.Packets (nolock) WHERE LoginID = @LoginID AND PacketShortName = @PacketShortName)
+				RAISERROR('Уже есть пакет с таким названием!',16,6);				
+		END		
+
+		IF @Mode = 0 -- проверка лимитов ресурсов
+		begin 
+			SELECT @ResourceValue = IsNull(r.Value,0) FROM dbo.ResourceCounts(nolock) AS r WHERE r.LoginID = @LoginID AND r.ResourceLimitID = @ResourceLimitID
+			SELECT @ResourceLimitValue = ResourceLimitValue from dbo.fnResourceLimitsGet (DEFAULT,@LoginID,@ResourceLimitID)
+			IF @ResourceValue >= @ResourceLimitValue
+			BEGIN				
+				RAISERROR('Достигнут предел (%i) количества пакетов для вашей учетной записи!',16,7,@ResourceLimitValue);
+			end	
+		end		
+
 		BEGIN TRAN
 			IF @Mode in (1,2)
 			BEGIN
 				IF NOT EXISTS (SELECT 1 FROM dbo.Packets (updlock) WHERE PacketID = @PacketID)
-					RAISERROR('Такого пакета нет!',16,6);
+					RAISERROR('Такого пакета нет!',16,8);
 			END;
 				
 			IF @Mode = 0 
-			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.Packets (holdlock) WHERE LoginID = @LoginID AND PacketShortName = @PacketShortName)
-					RAISERROR('Уже есть пакет с таким названием!',16,7);				
-				
+			BEGIN				
 				INSERT INTO dbo.Parameters(ParameterKindID,ParameterGroupID)
 				VALUES(1,@ParameterGroupID)
 				SET @PacketID = SCOPE_IDENTITY();
@@ -149,7 +167,22 @@ BEGIN
 					UPDATE 
 						SET PacketParamPosition = s.PacketParamPosition,[Active] = s.[Active];
 
-			END					 					
+			END
+
+			-- Увеличение счетчика +1
+			IF @Mode = 0
+			BEGIN
+				;MERGE dbo.ResourceCounts AS t
+				USING (SELECT @LoginID AS LoginID, @ResourceLimitID AS ResourceLimitID) AS s
+				ON (t.LoginID = s.LoginID AND t.ResourceLimitID = s.ResourceLimitID)
+				WHEN MATCHED THEN 
+					UPDATE
+						SET t.[Value] += 1
+				WHEN NOT MATCHED THEN		 
+					INSERT (LoginID, ResourceLimitID,[Value])
+					VALUES (s.LoginID, s.ResourceLimitID,1);					
+			END																		
+								 					
 			COMMIT			
 	END TRY
 	BEGIN CATCH

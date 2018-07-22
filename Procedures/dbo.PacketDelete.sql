@@ -25,6 +25,9 @@ BEGIN
 	DECLARE 
 		@MonitorShortName NVARCHAR(255)		
 						
+	DECLARE
+		@ResourceLimitID INT = 3 -- кол-во пакетов по логину
+						
 	BEGIN TRY
 		BEGIN TRAN
 			select top 1 
@@ -50,6 +53,11 @@ BEGIN
 			DELETE FROM dbo.Parameters
 			WHERE 	
 					ParameterID = @PacketID
+					
+			-- уменьшение счетчика
+			UPDATE dbo.ResourceCounts
+				SET [Value] -= 1
+			WHERE LoginID = @LoginID AND ResourceLimitID = @ResourceLimitID
 
 			COMMIT			
 	END TRY
