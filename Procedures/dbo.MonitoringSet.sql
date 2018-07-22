@@ -65,7 +65,13 @@ BEGIN
 		@OldRelationParamValue  DECIMAL(28,6),						
 		@Scale TINYINT = 0,								
 		@ParameterName1 NVARCHAR(255), 
-		@ParameterName2 NVARCHAR(255);
+		@ParameterName2 NVARCHAR(255),
+		@LoginID BIGINT;
+							
+	DECLARE
+		@ResourceLimitID INT = 4, -- Количество измерений по монитору
+		@ResourceValue INT = 0,
+		@ResourceLimitValue INT = 0;
 										
 	BEGIN TRY
 		-- ПРОВЕРКИ
@@ -90,7 +96,17 @@ BEGIN
 				RAISERROR('Нет параметров измерения.',16,5);
 				
 		END
+		
+		IF @MonitorID IS NULL 
+		BEGIN	 
+			SELECT @MonitorID = MonitorID FROM dbo.Monitorings (nolock) AS mp
+			WHERE mp.MonitoringID = @MonitoringID
+		END
 
+		SELECT @LoginID = LoginID FROM dbo.Monitors AS m (nolock)
+		WHERE m.MonitorID = @MonitorID
+		IF @LoginID IS NULL 
+			RAISERROR('Не установлена учетная запись пользователя.',16,6);
 		-- параметры
 		declare
 			@pars table (
@@ -140,7 +156,11 @@ BEGIN
 			END
 				
 			IF @Mode IN (0,1) 
-			BEGIN								
+			BEGIN				
+				IF EXISTS(SELECT 1 FROM dbo.Monitorings (nolock) WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
+				AND MonitoringID != IsNull(@MonitoringID,0)) 
+					RAISERROR('Уже есть измерение с такой датой и временем!',16,11);
+								
 				INSERT INTO @pars(MonitoringParamID,MonitorParamID,ParamID,ParamValue,ParamTypeID)	
 				select 
 					c.value('MonitoringParamID[1]','bigint')		AS MonitoringParamID,
@@ -152,7 +172,7 @@ BEGIN
 				FROM @MonitoringParams.nodes('/MonitoringParams/MonitoringParam') t(c)
 				set @AllParams = @@ROWCOUNT; 
 				IF @AllParams = 0
-					RAISERROR('Нет параметров измерения!',16,6);
+					RAISERROR('Нет параметров измерения!',16,7);
 					
 				IF EXISTS(
 					SELECT 1 FROM @pars AS p
@@ -160,7 +180,7 @@ BEGIN
 					WHERE p.ParamValue IS NULL 
 				)
 				BEGIN
-					RAISERROR('Для параметров должно быть указано значение измерения!',16,7);	
+					RAISERROR('Для параметров должно быть указано значение измерения!',16,8);	
 				END
 					
 				IF @Mode = 0
@@ -170,29 +190,29 @@ BEGIN
 					GROUP BY ParamID
 					HAVING(COUNT(1) > 1)
 					)
-						RAISERROR('Параметры в измерении не должны дублироваться!',16,8);				
-				END									
+						RAISERROR('Параметры в измерении не должны дублироваться!',16,9);				
+				END	
+												
 			END
+			
+			IF @Mode = 0 -- проверка лимитов ресурсов
+			begin 
+				SELECT @ResourceValue = IsNull(r.Value,0) FROM dbo.ResourceCounts(nolock) AS r WHERE r.LoginID = @LoginID AND r.ResourceLimitID = @ResourceLimitID
+				SELECT @ResourceLimitValue = ResourceLimitValue from dbo.fnResourceLimitsGet (DEFAULT,@LoginID,@ResourceLimitID)
+				IF @ResourceValue >= @ResourceLimitValue
+				BEGIN				
+					RAISERROR('Достигнут предел (%i) количества измерений по монитору для вашей учетной записи!',16,10,@ResourceLimitValue);
+				end	
+			end		
 			
 			IF @Mode IN (0,1)
 			BEGIN
 				--left join dbo.MonitoringParams AS mp on mp.MonitoringParamID = c.value('MonitoringParamID[1]','bigint')
-				BEGIN TRAN
-				
-					IF @MonitorID IS NULL AND @Mode = 1
-					BEGIN	 
-						SELECT @MonitorID = MonitorID FROM dbo.Monitorings (updlock) AS mp
-						WHERE mp.MonitoringID = @MonitoringID
-					END
-				
-					IF EXISTS(SELECT 1 FROM dbo.Monitorings (holdlock) WHERE MonitorID = @MonitorID AND MonitoringDate =@MonitoringDate  
-					AND MonitoringID != IsNull(@MonitoringID,0)) 
-						RAISERROR('Уже есть измерение с такой датой и временем!',16,9);
-						
+				BEGIN TRAN														
 					IF @Mode = 1
 					BEGIN
 						if not exists(select 1 from dbo.Monitorings(updlock) where MonitoringID = @MonitoringID)
-							RAISERROR('Данного измерения по монитору нет.',16,10);
+							RAISERROR('Данного измерения по монитору нет.',16,12);
 
 						UPDATE p
 							set OldParamValue = mp.ParamValue
@@ -217,7 +237,7 @@ BEGIN
 			BEGIN -- удаление
 				BEGIN TRAN
 					if not exists(select 1 from dbo.Monitorings(updlock) where MonitoringID = @MonitoringID)
-						RAISERROR('Данного измерения по монитору нет.',16,11);
+						RAISERROR('Данного измерения по монитору нет.',16,13);
 								
 					INSERT INTO @pars(
 						MonitoringParamID,
@@ -235,7 +255,7 @@ BEGIN
 						p.ParamTypeID,
 						mp.ParamValue 
 					FROM dbo.MonitoringParams (updlock) AS mp
-					JOIN dbo.Params AS p (updlock) ON p.ParamID = mp.ParamID					
+					JOIN dbo.Params AS p (holdlock) ON p.ParamID = mp.ParamID					
 					WHERE mp.MonitoringID = @MonitoringID
 			END					
 								
@@ -331,7 +351,7 @@ BEGIN
 												SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
 												IF IsNull(@ParameterName2,'') != ''  
 												SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
-												RAISERROR(@ErrorMessage,16,12)																															
+												RAISERROR(@ErrorMessage,16,14)																															
 											END;	
 											SET @ParamCalcValue = @ParamCalcValue / @ParamValue;
 										END
@@ -351,10 +371,10 @@ BEGIN
 								IF IsNull(@ParameterName2,'') != ''  
 									SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
 									
-								RAISERROR('Значение связанного параметра в операции "деление" не должно быть равно нулю!',@ErrorSeverity,13)
+								RAISERROR('Значение связанного параметра в операции "деление" не должно быть равно нулю!',@ErrorSeverity,15)
 							END	
 							ELSE 				
-								RAISERROR(@ErrorMessage,@ErrorSeverity,14)								
+								RAISERROR(@ErrorMessage,@ErrorSeverity,16)								
 						END CATCH															
 						SET @id += 1;	
 					END
@@ -461,7 +481,7 @@ BEGIN
 											SET @ErrorMessage = 'Расчетный парaметр '+'"'+@ParameterName1+'" ';
 											IF IsNull(@ParameterName2,'') != ''  
 											SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
-											RAISERROR(@ErrorMessage,16,15)											
+											RAISERROR(@ErrorMessage,16,17)											
 										END;	
 										SET @ParamCalcValue = @ParamCalcValue / @RelationParamValue - IIF( @OldRelationParamValue = 0,0,@ParamCalcValue / @OldRelationParamValue);
 									END							
@@ -481,10 +501,10 @@ BEGIN
 							IF IsNull(@ParameterName2,'') != ''  
 								SET @ErrorMessage = 'Связанный парaметр '+'"'+@ParameterName2+'" ';
 									
-							RAISERROR(@ErrorMessage,@ErrorSeverity,16)
+							RAISERROR(@ErrorMessage,@ErrorSeverity,18)
 						END	
 						ELSE 				
-							RAISERROR(@ErrorMessage,@ErrorSeverity,17)								
+							RAISERROR(@ErrorMessage,@ErrorSeverity,19)								
 					END CATCH															
 							
 					SET @id += 1;															
@@ -543,6 +563,26 @@ BEGIN
 				MonitoringID		= @MonitoringID
 			END
 			
+			-- Увеличение счетчика +1
+			IF @Mode = 0
+			BEGIN
+				;MERGE dbo.ResourceCounts AS t
+				USING (SELECT @LoginID AS LoginID, @ResourceLimitID AS ResourceLimitID) AS s
+				ON (t.LoginID = s.LoginID AND t.ResourceLimitID = s.ResourceLimitID)
+				WHEN MATCHED THEN 
+					UPDATE
+						SET t.[Value] += 1
+				WHEN NOT MATCHED THEN		 
+					INSERT (LoginID, ResourceLimitID,[Value])
+					VALUES (s.LoginID, s.ResourceLimitID,1);					
+			END						
+															
+			-- уменьшение счетчика
+			IF @Mode = 2
+				UPDATE dbo.ResourceCounts
+					SET [Value] -= 1
+				WHERE LoginID = @LoginID AND ResourceLimitID = @ResourceLimitID
+
 			COMMIT
 			RETURN 0			
 	END TRY
