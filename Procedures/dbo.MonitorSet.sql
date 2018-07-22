@@ -43,6 +43,11 @@ BEGIN
 		@ParamName NVARCHAR(255),
 		@PacketName  NVARCHAR(255);
 		  					
+	DECLARE
+		@ResourceLimitID INT = 1, -- кол-во мониторов по логину
+		@ResourceValue INT = 0,
+		@ResourceLimitValue INT = 0;
+				  					
 	DECLARE @par table (
 			MonitorParamPosition INT NOT NULL IDENTITY(1,1),
 			ParameterID bigint NOT NULL,
@@ -74,34 +79,50 @@ BEGIN
 				
 		IF @Mode in (0,1) and /*@JSON*/@MonitorParameters IS NULL 
 			RAISERROR('ƒолжен быть указан хот€ бы один параметр!',16,3);
+			 
+		IF @Mode = 0
+		begin
+			IF EXISTS(SELECT 1 FROM dbo.Monitors (nolock) WHERE LoginID = @LoginID AND MonitorShortName = @MonitorShortName)
+				RAISERROR('”же есть монитор с таким названием!',16,4);
+		end;
+						
+		IF @Mode = 1
+		begin 
+			IF EXISTS(SELECT 1 FROM dbo.Monitors (nolock) WHERE MonitorID != @MonitorID and LoginID = @LoginID and MonitorShortName = @MonitorShortName )
+				RAISERROR('”же есть монитор с таким названием!',16,5);
+		end											
+		
+		IF @Mode = 0 -- проверка лимитов ресурсов
+		begin 
+			SELECT @ResourceValue = IsNull(r.Value,0) FROM dbo.ResourceCounts(nolock) AS r WHERE r.LoginID = @LoginID AND r.ResourceLimitID = @ResourceLimitID
+			SELECT @ResourceLimitValue = ResourceLimitValue from dbo.fnResourceLimitsGet (DEFAULT,@LoginID,@ResourceLimitID)
+			IF @ResourceValue >= @ResourceLimitValue
+			BEGIN				
+				RAISERROR('ƒостигнут предел (%i) количества мониторов дл€ вашей учетной записи!',16,6,@ResourceLimitValue);
+			end	
+		end		
 			
 		BEGIN TRAN
-			IF @Mode = 0
-				IF EXISTS(SELECT 1 FROM dbo.Monitors (holdlock) WHERE LoginID = @LoginID AND MonitorShortName = @MonitorShortName)
-					RAISERROR('”же есть монитор с таким названием!',16,8);		
-
 			IF @Mode = 1
 			begin 
 				IF NOT EXISTS(SELECT 1 FROM dbo.Monitors(updlock) AS m WHERE m.MonitorID = @MonitorID)
-					RAISERROR('ƒанного монитора нет!',16,2);
-				IF EXISTS(SELECT 1 FROM dbo.Monitors (holdlock) WHERE MonitorID != @MonitorID and LoginID = @LoginID and MonitorShortName = @MonitorShortName )
-					RAISERROR('”же есть монитор с таким названием!',16,10);									
+					RAISERROR('ƒанного монитора нет!',16,7);
 			end		
 
 			IF @Mode in (0,1)
 			BEGIN			
-					INSERT INTO @par(ParameterID, MonitorParameterValue, Active)	
-					select 
-						c.value('ParameterID[1]','bigint') AS ParameterID,
-						IIF(p.ParamID IS NULL, NULL, c.value('MonitorParameterValue[1]','DECIMAL(28,6)')) AS MonitorParameterValue,
-						c.value('MonitorParameterActive[1]','bit') AS Active
-					from 
-						@MonitorParameters.nodes('/MonitorParameters/MonitorParameter') t(c)
-					LEFT JOIN dbo.Params AS p (holdlock) ON p.ParamID = c.value('ParameterID[1]','bigint')
-					AND p.ParamTypeID = 2 -- параметр монитора 											
+				INSERT INTO @par(ParameterID, MonitorParameterValue, Active)	
+				select 
+					c.value('ParameterID[1]','bigint') AS ParameterID,
+					IIF(p.ParamID IS NULL, NULL, c.value('MonitorParameterValue[1]','DECIMAL(28,6)')) AS MonitorParameterValue,
+					c.value('MonitorParameterActive[1]','bit') AS Active
+				from 
+					@MonitorParameters.nodes('/MonitorParameters/MonitorParameter') t(c)
+				LEFT JOIN dbo.Params AS p (holdlock) ON p.ParamID = c.value('ParameterID[1]','bigint')
+				AND p.ParamTypeID = 2 -- параметр монитора 											
 					
 				IF @@ROWCOUNT = 0	
-					RAISERROR('ƒолжен быть указан хот€ бы один параметр!',16,4);
+					RAISERROR('ƒолжен быть указан хот€ бы один параметр!',16,8);
 									
 				-- —писок всех параметров монитора(включа€ пакеты)
 				INSERT INTO @pm
@@ -150,7 +171,7 @@ BEGIN
 					ELSE	
 						set @ErrorMessage += 'см.парaметр "'+@ParamName+'".';
 																		
-					RAISERROR(@ErrorMessage,16,5); 
+					RAISERROR(@ErrorMessage,16,9); 
 				END
 				
 				-- ѕроверка корректности расчетных параметров								
@@ -180,7 +201,7 @@ BEGIN
 				BEGIN
 					set @ErrorMessage = 'ƒл€ расчетных(итоговых) параметров в мониторе должны быть указаны все параметры, которые используютс€ дл€ их расчета.';
 					set @ErrorMessage += ' ¬ частности, дл€ парaметра "'+@CalcParamName+'" должен быть указан параметр "'+@ParamName+'".';
-					RAISERROR(@ErrorMessage,16,6); 
+					RAISERROR(@ErrorMessage,16,10); 
 				END				 				
 				
 				-- проверка на существование измерений по монитору
@@ -201,7 +222,7 @@ BEGIN
 					)						 
 					BEGIN		
 						set @ErrorMessage = '»з шаблона измерений нельз€ удалить параметр, если были проведены измерени€. ƒл€ исключени€ параметра из измерений достаточно убрать признак доступности параметра.';
-						RAISERROR(@ErrorMessage,16,7); 
+						RAISERROR(@ErrorMessage,16,11); 
 					END
 				END
 			END
@@ -223,7 +244,7 @@ BEGIN
 					@LoginID
 				)
 				
-				SET @MonitorID = SCOPE_IDENTITY();																	
+				SET @MonitorID = SCOPE_IDENTITY();				
 			END
 			ELSE
 			IF @Mode = 1
@@ -278,7 +299,21 @@ BEGIN
 					UPDATE 
 						SET MonitorParamPosition = s.MonitorParamPosition,[Active] = s.[Active];
 				
-			END					 					
+			END
+			-- ”величение счетчика +1
+			IF @Mode = 0
+			BEGIN
+				;MERGE dbo.ResourceCounts AS t
+				USING (SELECT @LoginID AS LoginID, @ResourceLimitID AS ResourceLimitID) AS s
+				ON (t.LoginID = s.LoginID AND t.ResourceLimitID = s.ResourceLimitID)
+				WHEN MATCHED THEN 
+					UPDATE
+						SET t.[Value] += 1
+				WHEN NOT MATCHED THEN		 
+					INSERT (LoginID, ResourceLimitID,[Value])
+					VALUES (s.LoginID, s.ResourceLimitID,1);					
+			END																		
+					 					
 			COMMIT			
 	END TRY
 	BEGIN CATCH

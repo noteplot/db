@@ -22,10 +22,17 @@ GO
 
 ALTER TABLE [dbo].[Monitors] CHECK CONSTRAINT [FK_Monitors_Logins]
 GO
-
+/*
 CREATE NONCLUSTERED INDEX IX_Monitors_LoginID ON dbo.Monitors
 ( 
 	LoginID ASC
+)
+GO
+*/
+CREATE UNIQUE NONCLUSTERED INDEX [IU_Monitors_LoginID_ShortName] ON [dbo].[Monitors]
+(
+	[LoginID],
+	[MonitorShortName]
 )
 GO
 

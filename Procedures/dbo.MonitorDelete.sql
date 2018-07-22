@@ -19,6 +19,8 @@ BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
 		@ErrorMessage NVARCHAR(4000);
+	DECLARE
+		@ResourceLimitID INT = 1; -- кол-во мониторов по логину
 						
 	BEGIN TRY
 		BEGIN TRAN
@@ -46,6 +48,11 @@ BEGIN
 					MonitorID = @MonitorID
 					AND LoginID = @LoginID
 
+			-- уменьшение счетчика
+			UPDATE dbo.ResourceCounts
+				SET [Value] -= 1
+			WHERE LoginID = @LoginID AND ResourceLimitID = @ResourceLimitID
+					
 			COMMIT			
 	END TRY
 	BEGIN CATCH

@@ -13,7 +13,8 @@ GO
 ALTER FUNCTION dbo.fnResourceLimitsGet 
 (
 	@RoleID INT = NULL,
-	@LoginID BIGINT = NULL 
+	@LoginID BIGINT = NULL,
+	@ResourceLimitID INT = NULL
 )
 RETURNS TABLE 
 AS
@@ -31,7 +32,8 @@ RETURN
 		*/
 		--RoleID = rl.RoleID	
 	from dbo.ResourceLimits as l
-	left join dbo.LoginRoleResourceLimits as rl on rl.LoginRoleID = IsNull(@RoleID,0) and rl.ResourceLimitID = l.ResourceLimitID
+	left join dbo.LoginRoleResourceLimits as rl on rl.LoginRoleID = IsNull(@RoleID,IIF(@LoginID IS NOT NULL,(select LoginRoleID FROM dbo.Logins WHERE LoginID = @LoginID),0)) and rl.ResourceLimitID = l.ResourceLimitID
 	left join dbo.LoginResourceLimits as ll on ll.LoginID = IsNull(@LoginID,0) and ll.ResourceLimitID = l.ResourceLimitID
+	WHERE l.ResourceLimitID = IsNull(@ResourceLimitID,l.ResourceLimitID)
 )
 GO
