@@ -13,7 +13,7 @@ GO
 
 ALTER PROCEDURE dbo.MonitorDelete 
 	@MonitorID		BIGINT,
-	@LoginID			BIGINT
+	@LoginID		BIGINT
 AS
 BEGIN
 	SET NOCOUNT ON;

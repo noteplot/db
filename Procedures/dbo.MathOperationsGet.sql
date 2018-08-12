@@ -15,6 +15,8 @@ ALTER PROCEDURE dbo.MathOperationsGet
 AS
 BEGIN
 	SET NOCOUNT ON;
+	SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+	
 	SELECT 
 		mo.MathOperationID,
 		mo.MathOperationShortName,
