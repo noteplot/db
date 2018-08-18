@@ -22,10 +22,8 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
-		@ErrorMessage NVARCHAR(4000),
-		@ErrorSeverity INT,	
-		@ErrorState INT	   		
-
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.UnitGroupSet';--
+	
 	BEGIN TRY
 		IF @Mode NOT IN (0,1,2)
 		BEGIN
@@ -87,10 +85,8 @@ BEGIN
 			COMMIT			
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT != 0 
-			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
 	END CATCH	  
 END
 GO

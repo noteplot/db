@@ -16,6 +16,9 @@ ALTER PROCEDURE [dbo].[LoginConfirm]
 AS
 BEGIN
 	SET NOCOUNT ON;
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.LoginConfirm';--
+	
 	BEGIN TRY		
 		BEGIN TRAN
 			IF NOT EXISTS (		
@@ -33,12 +36,8 @@ BEGIN
 		COMMIT
 	END TRY
 	BEGIN CATCH
-		if @@TRANCOUNT>0 
-			ROLLBACK
-		DECLARE @errmes varchar(255) = ERROR_MESSAGE();
-		raiserror(@errmes,16,1);
-		return 1
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
 	END CATCH
-	return 0
 END
 GO

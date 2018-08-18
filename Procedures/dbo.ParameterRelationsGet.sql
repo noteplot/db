@@ -17,18 +17,27 @@ ALTER PROCEDURE dbo.ParameterRelationsGet
 AS
 BEGIN
 	SET NOCOUNT ON;
-	SELECT 
-		pr.PrimaryParamID,
-		pr.SecondaryParamID AS ParameterID,
-		p.ParamShortName AS ParameterShortName, 	
-		pr.MathOperationID,
-		mo.MathOperationShortName,
-		mo.MathOperationName,
-		mo.MathOperationShortName + ' ('+mo.MathOperationName+')' AS MathOperationFullName
-	FROM dbo.ParamRelations AS pr
-	JOIN dbo.Params AS p ON p.ParamID = pr.SecondaryParamID
-	JOIN dbo.MathOperations AS mo ON mo.MathOperationID = pr.MathOperationID 	
-	WHERE PrimaryParamID = @PrimaryParamID
-	ORDER BY pr.ParamRelationPosition 	
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.ParameterRelationsGet';--
+		
+	BEGIN TRY	
+		SELECT 
+			pr.PrimaryParamID,
+			pr.SecondaryParamID AS ParameterID,
+			p.ParamShortName AS ParameterShortName, 	
+			pr.MathOperationID,
+			mo.MathOperationShortName,
+			mo.MathOperationName,
+			mo.MathOperationShortName + ' ('+mo.MathOperationName+')' AS MathOperationFullName
+		FROM dbo.ParamRelations AS pr
+		JOIN dbo.Params AS p ON p.ParamID = pr.SecondaryParamID
+		JOIN dbo.MathOperations AS mo ON mo.MathOperationID = pr.MathOperationID 	
+		WHERE PrimaryParamID = @PrimaryParamID
+		ORDER BY pr.ParamRelationPosition
+	END TRY	
+	BEGIN CATCH
+		EXEC [dbo].[ErrorLogSet] @LoginID = NULL, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH				 			 		 									   	 	 	
 END
 GO

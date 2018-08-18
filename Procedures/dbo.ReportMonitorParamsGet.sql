@@ -17,18 +17,26 @@ ALTER PROCEDURE dbo.ReportMonitorParamsGet
 AS
 BEGIN
 	SET NOCOUNT ON;
-	SELECT 		
-		m.MonitorID,
-		m.MonitorShortName,
-		p.ParameterID AS ParamID,
-		p.ParameterShortName AS ParamShortName,
-		p.ParameterUnitShortName AS UnitShortName,
-		[Active] = IIF(m.[Active] = 0, 0, p.[Active]),
-		@LoginID AS LoginID  
-	FROM dbo.Monitors AS m
-	cross apply dbo.[fnMonitorParamsGet](m.MonitorID,NULL,@LoginID,@Active) AS p	
-	WHERE m.LoginID IN (0,@LoginID)
-	AND m.[Active] = ISNULL(@Active,m.[Active])
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.ReportMonitorParamsGet';--
 		
+	BEGIN TRY	
+		SELECT 		
+			m.MonitorID,
+			m.MonitorShortName,
+			p.ParameterID AS ParamID,
+			p.ParameterShortName AS ParamShortName,
+			p.ParameterUnitShortName AS UnitShortName,
+			[Active] = IIF(m.[Active] = 0, 0, p.[Active]),
+			@LoginID AS LoginID  
+		FROM dbo.Monitors AS m
+		cross apply dbo.[fnMonitorParamsGet](m.MonitorID,NULL,@LoginID,@Active) AS p	
+		WHERE m.LoginID IN (0,@LoginID)
+		AND m.[Active] = ISNULL(@Active,m.[Active])
+	END TRY
+	BEGIN CATCH
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH	  				
 END
 GO	

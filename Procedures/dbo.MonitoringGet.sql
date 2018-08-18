@@ -16,17 +16,31 @@ ALTER PROCEDURE dbo.MonitoringGet
 AS
 BEGIN
 	SET NOCOUNT ON;
-	SELECT 
-		mg.MonitoringID				AS MonitoringID,
-		mg.MonitorID				AS MonitorID,
-		m.MonitorShortName			AS MonitorShortName,				
-		mg.MonitoringDate			AS MonitoringDate,
-		mg.MonitoringComment		AS MonitoringComment, 
-		mg.CreationDateUTC			AS CreationDateUTC,
-		mg.ModifiedDateUTC			AS ModifiedDateUTC		 
-	FROM dbo.Monitorings AS mg
-	join dbo.Monitors AS m ON m.MonitorID = mg.MonitorID
-	WHERE
-		mg.MonitoringID = @MonitoringID	 		 
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.MonitoringGet';--
+		
+	BEGIN TRY
+		SELECT 
+			mg.MonitoringID				AS MonitoringID,
+			mg.MonitorID				AS MonitorID,
+			m.MonitorShortName			AS MonitorShortName,				
+			mg.MonitoringDate			AS MonitoringDate,
+			mg.MonitoringComment		AS MonitoringComment, 
+			mg.CreationDateUTC			AS CreationDateUTC,
+			mg.ModifiedDateUTC			AS ModifiedDateUTC		 
+		FROM dbo.Monitorings AS mg
+		join dbo.Monitors AS m ON m.MonitorID = mg.MonitorID
+		WHERE
+			mg.MonitoringID = @MonitoringID
+	END TRY
+	BEGIN CATCH
+		DECLARE @LoginID BIGINT
+		SELECT @LoginID = m.LoginID FROM dbo.Monitorings AS mg (nolock)
+		JOIN dbo.Monitors AS m (nolock) ON m.MonitorID = mg.MonitorID 
+		WHERE mg.MonitoringID = @MonitoringID
+			
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH				 			 		 
 END	
 GO

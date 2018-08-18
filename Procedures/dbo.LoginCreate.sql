@@ -23,63 +23,60 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID), --N'dbo.LoginCreate',--
 		@IsConfirmed BIT;
 		
-	IF @Email IS NULL 
-		SET @Email = @LoginName
+	BEGIN TRY		
+		IF @Email IS NULL 
+			SET @Email = @LoginName
 				
-	BEGIN TRY
-		BEGIN TRAN
-			SELECT @LoginID = LoginID, @IsConfirmed = IsConfirmed FROM dbo.Logins (updlock) WHERE LoginName = @LoginName			
-			IF @@ROWCOUNT != 0
-			BEGIN  
-				IF @IsConfirmed = 1	-- логин подтвержден, если нет обновляем данные регистрации
-					RAISERROR('Такой логин уже существует!',16,1); 
-			END
+			BEGIN TRAN
+				SELECT @LoginID = LoginID, @IsConfirmed = IsConfirmed FROM dbo.Logins (updlock) WHERE LoginName = @LoginName			
+				IF @@ROWCOUNT != 0
+				BEGIN  
+					IF @IsConfirmed = 1	-- логин подтвержден, если нет обновляем данные регистрации
+						RAISERROR('Такой логин уже существует!',16,1); 
+				END
 				
-			if @LoginRoleID is null
-				set @LoginRoleID = 2
+				if @LoginRoleID is null
+					set @LoginRoleID = 2
 			
-			IF @LoginID IS NULL
-			BEGIN				
-				INSERT INTO dbo.Logins
-				(
-					LoginRoleID,
-					LoginName,
-					[Password],
-					Email,
-					ScreenName,
-					ShowScreenName
-				)
-				VALUES(
-					@LoginRoleID,
-					@LoginName,
-					@Password,
-					@Email,
-					@ScreenName,
-					@ShowScreenName				
-					)			
-					set @LoginID = SCOPE_IDENTITY();
-			END
-			ELSE	-- обновление данных регистрации
-				UPDATE dbo.Logins
-					SET 
-					LoginName		= @LoginName,		
-					[Password]		= @Password,		
-					Email			= @Email,			
-					LoginRoleID		= @LoginRoleID,	
-					ScreenName		= @ScreenName,		
-					ShowScreenName	= @ShowScreenName
-				WHERE LoginID = @LoginID									
-		COMMIT
+				IF @LoginID IS NULL
+				BEGIN				
+					INSERT INTO dbo.Logins
+					(
+						LoginRoleID,
+						LoginName,
+						[Password],
+						Email,
+						ScreenName,
+						ShowScreenName
+					)
+					VALUES(
+						@LoginRoleID,
+						@LoginName,
+						@Password,
+						@Email,
+						@ScreenName,
+						@ShowScreenName				
+						)			
+						set @LoginID = SCOPE_IDENTITY();
+				END
+				ELSE	-- обновление данных регистрации
+					UPDATE dbo.Logins
+						SET 
+						LoginName		= @LoginName,		
+						[Password]		= @Password,		
+						Email			= @Email,			
+						LoginRoleID		= @LoginRoleID,	
+						ScreenName		= @ScreenName,		
+						ShowScreenName	= @ShowScreenName
+					WHERE LoginID = @LoginID									
+			COMMIT
 	END TRY
 	BEGIN CATCH
-		if @@TRANCOUNT>0 
-			ROLLBACK
-		DECLARE @errmes varchar(255) = ERROR_MESSAGE();
-		raiserror(@errmes,16,1);
-		return 1
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @rollback= 1			
+		RETURN 1
 	END CATCH
-	return 0
 END
 GO

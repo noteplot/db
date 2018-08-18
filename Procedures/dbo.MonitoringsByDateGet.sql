@@ -17,6 +17,10 @@ ALTER PROCEDURE dbo.MonitoringsByDateGet
 @DateTo DATETIME2(0)
 AS
 BEGIN
+	SET NOCOUNT ON;
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.MonitoringsByDateGet';--		 	
+
 	DECLARE 
 		@dt1 DATETIME2(0),@dt2 DATETIME2(0),@cd DATETIME2(0) = GETDATE()
 		 	
@@ -29,20 +33,29 @@ BEGIN
 		SET @dt1 = cast(DATEADD(dd,-1,@dt2) AS DATE)
 	ELSE
 		SET @dt1 = cast(@DateFrom AS DATE);					
-			 
-	SET NOCOUNT ON;
-	SELECT
-		mg.MonitoringID				AS MonitoringID,
-		mg.MonitorID				AS MonitorID,		
-		mg.MonitoringDate			AS MonitoringDate,
-		mg.MonitoringComment		AS MonitoringComment, 
-		mg.CreationDateUTC				AS CreationDateUTC,
-		mg.ModifiedDateUTC				AS ModifiedDateUTC		 
-	FROM dbo.Monitorings AS mg
-	WHERE
-		mg.MonitorID = @MonitorID		
-		AND mg.MonitoringDate >= @dt1
-		AND mg.MonitoringDate < @dt2
-	ORDER BY mg.MonitoringDate DESC		 		 		 
+	
+	BEGIN TRY			 
+		SELECT
+			mg.MonitoringID				AS MonitoringID,
+			mg.MonitorID				AS MonitorID,		
+			mg.MonitoringDate			AS MonitoringDate,
+			mg.MonitoringComment		AS MonitoringComment, 
+			mg.CreationDateUTC				AS CreationDateUTC,
+			mg.ModifiedDateUTC				AS ModifiedDateUTC		 
+		FROM dbo.Monitorings AS mg
+		WHERE
+			mg.MonitorID = @MonitorID		
+			AND mg.MonitoringDate >= @dt1
+			AND mg.MonitoringDate < @dt2
+		ORDER BY mg.MonitoringDate DESC
+	END TRY	
+	BEGIN CATCH
+		DECLARE @LoginID BIGINT
+		SELECT @LoginID = m.LoginID FROM dbo.Monitors AS m (nolock)
+		WHERE m.MonitorID = @MonitorID
+			
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH				 			 		 		 
 END	
 GO

@@ -27,6 +27,9 @@ BEGIN
 						
 	DECLARE
 		@ResourceLimitID INT = 3 -- кол-во пакетов по логину
+
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.PacketDelete';--
 						
 	BEGIN TRY
 		BEGIN TRAN
@@ -62,19 +65,8 @@ BEGIN
 			COMMIT			
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT <> 0 
-			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
-		/* 
-			SELECT
-				ERROR_NUMBER() AS ErrorNumber,
-				ERROR_SEVERITY() AS ErrorSeverity,
-				ERROR_STATE() AS ErrorState,
-				ERROR_PROCEDURE() AS ErrorProcedure,
-				ERROR_LINE() AS ErrorLine,
-				ERROR_MESSAGE() AS ErrorMessage
-		*/
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
 	END CATCH	  
 END
 GO

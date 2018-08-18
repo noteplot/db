@@ -17,19 +17,27 @@ ALTER PROCEDURE dbo.PacketGet
 AS
 BEGIN
 	SET NOCOUNT ON;
-	SELECT 
-		p.PacketID					AS PacketID,
-		ps.ParameterGroupID			AS ParameterGroupID,
-		pg.ParameterGroupShortName	AS ParameterGroupShortName,		
-		p.PacketShortName			AS PacketShortName,
-		p.PacketName				AS PacketName,		
-		p.LoginID					AS LoginID,
-		ps.[Active]					AS [Active] 
-	FROM dbo.Packets AS p
-	JOIN dbo.Parameters AS ps ON ps.ParameterID = p.PacketID
-	JOIN dbo.ParameterGroups AS pg ON pg.ParameterGroupID = ps.ParameterGroupID
-	WHERE 
-		ps.ParameterID = IsNull(@PacketID,ps.ParameterID) and
-		p.LoginID IN (0,@LoginID) 
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.PacketGet';--
+	BEGIN TRY	
+		SELECT 
+			p.PacketID					AS PacketID,
+			ps.ParameterGroupID			AS ParameterGroupID,
+			pg.ParameterGroupShortName	AS ParameterGroupShortName,		
+			p.PacketShortName			AS PacketShortName,
+			p.PacketName				AS PacketName,		
+			p.LoginID					AS LoginID,
+			ps.[Active]					AS [Active] 
+		FROM dbo.Packets AS p
+		JOIN dbo.Parameters AS ps ON ps.ParameterID = p.PacketID
+		JOIN dbo.ParameterGroups AS pg ON pg.ParameterGroupID = ps.ParameterGroupID
+		WHERE 
+			ps.ParameterID = IsNull(@PacketID,ps.ParameterID) and
+			p.LoginID IN (0,@LoginID)
+	END TRY	
+	BEGIN CATCH
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH				 			 		 								 
 END	
 GO

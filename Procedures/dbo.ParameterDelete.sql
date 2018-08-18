@@ -19,6 +19,9 @@ BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
 		@ErrorMessage NVARCHAR(4000);
+
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.ParameterDelete';--
 						
 	DECLARE
 		@ResourceLimitID INT = 2; -- кол-во параметров по логину
@@ -58,19 +61,8 @@ BEGIN
 			COMMIT			
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT <> 0 
-			ROLLBACK;
-		SET @ErrorMessage = ERROR_MESSAGE();				
-		RAISERROR(@ErrorMessage,16,4);
-		/* 
-			SELECT
-				ERROR_NUMBER() AS ErrorNumber,
-				ERROR_SEVERITY() AS ErrorSeverity,
-				ERROR_STATE() AS ErrorState,
-				ERROR_PROCEDURE() AS ErrorProcedure,
-				ERROR_LINE() AS ErrorLine,
-				ERROR_MESSAGE() AS ErrorMessage
-		*/
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
 	END CATCH	  
 END
 GO

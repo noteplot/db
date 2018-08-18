@@ -18,12 +18,13 @@ ALTER PROCEDURE dbo.MonitoringsByDateDelete
 @DeletedRows	INT = 0 OUT
 AS
 BEGIN
+	SET NOCOUNT ON;
 	DECLARE 
-		@dt1 DATETIME2(0),@dt2 DATETIME2(0),@cd DATETIME2(0) = GETDATE(),
-		@ErrorMessage	NVARCHAR(4000),
-		@ErrorSeverity	INT,	
-		@ErrorState		INT
-		 	
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.MonitoringsByDateDelete';--		 	
+
+	DECLARE 
+		@dt1 DATETIME2(0),@dt2 DATETIME2(0),@cd DATETIME2(0) = GETDATE()
+		
 	IF @DateTo IS NULL 
 		SET @dt2 = cast(DATEADD(dd,1,@cd) AS DATE)
 	ELSE
@@ -34,7 +35,6 @@ BEGIN
 	ELSE
 		SET @dt1 = cast(@DateFrom AS DATE);					
 			 
-	SET NOCOUNT ON;
 	BEGIN TRY
 		IF @dt1 >= @dt2
 			RAISERROR('Некорректно указан период!',16,1)
@@ -59,11 +59,13 @@ BEGIN
 		COMMIT
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT > 0 
-			ROLLBACK
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
-		RETURN 1	
+		IF @@TRANCOUNT > 0 ROLLBACK
+		DECLARE @LoginID BIGINT
+		SELECT @LoginID = m.LoginID FROM dbo.Monitors AS m (nolock)
+		WHERE m.MonitorID = @MonitorID
+		
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;			
 	END CATCH
 		
 END	

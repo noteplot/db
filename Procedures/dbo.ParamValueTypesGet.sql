@@ -17,15 +17,24 @@ ALTER PROCEDURE dbo.ParamValueTypesGet
 AS
 BEGIN
 	SET NOCOUNT ON;
-	SELECT 
-		ParamValueTypeID,
-		ParamValueTypeCode,
-		ParamValueTypeShortName,				
-		ParamValueTypeName,
-		[IsNumeric],
-		[Scale],
-		[Precision]
-	FROM dbo.ParamValueTypes
-	WHERE [IsNumeric] = IsNull(@IsNumeric,[IsNumeric])
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.ParamValueTypesGet';--
+		
+	BEGIN TRY		
+		SELECT 
+			ParamValueTypeID,
+			ParamValueTypeCode,
+			ParamValueTypeShortName,				
+			ParamValueTypeName,
+			[IsNumeric],
+			[Scale],
+			[Precision]
+		FROM dbo.ParamValueTypes
+		WHERE [IsNumeric] = IsNull(@IsNumeric,[IsNumeric])
+	END TRY
+	BEGIN CATCH
+		EXEC [dbo].[ErrorLogSet] @LoginID = NULL, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH	  	
 END
 GO

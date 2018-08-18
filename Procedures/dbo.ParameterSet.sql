@@ -39,10 +39,8 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
-		@ErrorMessage NVARCHAR(4000),
-		@ErrorSeverity INT,	
-		@ErrorState INT
-
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.ParameterSet';--
+	
 	DECLARE
 		@ResourceLimitID INT = 2, -- кол-во параметров по логину
 		@ResourceValue INT = 0,
@@ -254,10 +252,8 @@ BEGIN
 			COMMIT			
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT != 0 
-			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
+		EXEC [dbo].[ErrorLogSet] @LoginID = NULL, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
 	END CATCH	  
 END
 GO

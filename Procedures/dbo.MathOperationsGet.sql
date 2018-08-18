@@ -16,12 +16,20 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
-	
-	SELECT 
-		mo.MathOperationID,
-		mo.MathOperationShortName,
-		mo.MathOperationName,
-		mo.MathOperationShortName + ' ('+mo.MathOperationName+')' AS MathOperationFullName  
-	FROM dbo.MathOperations AS mo
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.MathOperationsGet';--
+			
+	BEGIN TRY
+		SELECT 
+			mo.MathOperationID,
+			mo.MathOperationShortName,
+			mo.MathOperationName,
+			mo.MathOperationShortName + ' ('+mo.MathOperationName+')' AS MathOperationFullName  
+		FROM dbo.MathOperations AS mo
+	END TRY
+	BEGIN CATCH		
+		EXEC [dbo].[ErrorLogSet] @LoginID = null, @ProcName = @ProcName, @Reraise = 1, @rollback= 1;
+		RETURN 1;	
+	END CATCH	
 END	
 GO

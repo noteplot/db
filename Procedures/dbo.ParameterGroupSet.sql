@@ -21,12 +21,9 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
-		@ErrorMessage NVARCHAR(4000),
-		@ErrorSeverity INT,	
-		@ErrorState INT	   		
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.ParameterGroupSet';--
     			
-	BEGIN TRY
-		
+	BEGIN TRY		
 		IF @Mode NOT IN (0,1,2)
 		BEGIN
 			RAISERROR('Некорректное значение параметра @Mode',16,1);	
@@ -82,19 +79,8 @@ BEGIN
 		COMMIT			 
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT != 0 
-			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);		/* 
-			SELECT
-				ERROR_NUMBER() AS ErrorNumber,
-				ERROR_SEVERITY() AS ErrorSeverity,
-				ERROR_STATE() AS ErrorState,
-				ERROR_PROCEDURE() AS ErrorProcedure,
-				ERROR_LINE() AS ErrorLine,
-				ERROR_MESSAGE() AS ErrorMessage
-		*/
-	END CATCH
-			 
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH			 
 END	
 GO

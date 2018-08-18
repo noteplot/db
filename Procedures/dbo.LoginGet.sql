@@ -17,13 +17,20 @@ ALTER PROCEDURE [dbo].[LoginGet]
 @Mode  TINYINT = 0				-- 0 - поиск по LoginName 1 - поиск по EMail
 AS
 BEGIN
-	SET NOCOUNT ON;			
-	IF @Mode = 0	
-		SELECT * FROM dbo.Logins WHERE LoginName = @Login AND Password = @Password 
-	ELSE
-	IF @Mode = 1
-		SELECT * FROM dbo.Logins WHERE Email = @Login
+	SET NOCOUNT ON;
+	BEGIN TRY
+		DECLARE
+			@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--'dbo.LoginGet'--
 			
-		
+		IF @Mode = 0	
+			SELECT * FROM dbo.Logins WHERE LoginName = @Login AND Password = @Password 
+		ELSE
+		IF @Mode = 1
+			SELECT * FROM dbo.Logins WHERE Email = @Login		
+	END TRY
+	BEGIN CATCH
+		EXEC [dbo].[ErrorLogSet] @LoginID = null, @ProcName = @ProcName, @Reraise = 1, @rollback= 1
+		RETURN 1;
+	END CATCH
 END
 GO

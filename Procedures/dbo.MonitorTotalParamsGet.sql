@@ -16,6 +16,10 @@ ALTER PROCEDURE dbo.MonitorTotalParamsGet
 AS
 BEGIN
 	SET NOCOUNT ON;
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.MonitorTotalParamsGet';--
+		
+	BEGIN TRY
 		;WITH par as (	
 		SELECT
 		mp.MonitorParamID,
@@ -61,6 +65,14 @@ BEGIN
 		JOIN dbo.Units AS u ON u.UnitID = p.ParamUnitID
 		JOIN dbo.ParamValueTypes AS pvt ON pvt.ParamValueTypeID = p.ParamValueTypeID
 		JOIN dbo.MonitorTotalParamValues AS mtpv ON mtpv.MonitorParamID = par.MonitorParamID
-		ORDER BY par.MonitorParamPosition,par.PacketParamPosition			
+		ORDER BY par.MonitorParamPosition,par.PacketParamPosition
+	END TRY	
+	BEGIN CATCH
+		DECLARE @LoginID BIGINT
+		SELECT @LoginID = m.LoginID FROM dbo.Monitors AS m (nolock) 
+		WHERE m.MonitorID = @MonitorID
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH				 			 		 						
 END;
 GO

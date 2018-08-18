@@ -17,14 +17,23 @@ ALTER PROCEDURE dbo.ParameterGroupGet
 AS
 BEGIN
 	SET NOCOUNT ON;
-	SELECT 
-		ParameterGroupID,
-		ParameterGroupShortName,				
-		ParameterGroupName,
-		LoginID
-	FROM dbo.ParameterGroups	
-	WHERE 
-	ParameterGroupID = IsNull(@ParameterGroupID,ParameterGroupID) and
-	LoginID IN (0,@LoginID) 
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.ParameterGroupGet';--
+		
+	BEGIN TRY
+		SELECT 
+			ParameterGroupID,
+			ParameterGroupShortName,				
+			ParameterGroupName,
+			LoginID
+		FROM dbo.ParameterGroups	
+		WHERE 
+		ParameterGroupID = IsNull(@ParameterGroupID,ParameterGroupID) and
+		LoginID IN (0,@LoginID)
+	END TRY	
+	BEGIN CATCH
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
+	END CATCH				 			 		 									   	 
 END	
 GO

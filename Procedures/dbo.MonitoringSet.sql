@@ -72,6 +72,9 @@ BEGIN
 		@ResourceLimitID INT = 4, -- Количество измерений по монитору
 		@ResourceValue INT = 0,
 		@ResourceLimitValue INT = 0;
+								
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.MonitoringSet';--
 										
 	BEGIN TRY
 		-- ПРОВЕРКИ
@@ -587,11 +590,8 @@ BEGIN
 			RETURN 0			
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT != 0 
-			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
-		RETURN 1
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback= 1;
+		RETURN 1;
 	END CATCH	  
 END
 GO

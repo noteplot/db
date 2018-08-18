@@ -33,9 +33,7 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	DECLARE 
-		@ErrorMessage NVARCHAR(4000),
-		@ErrorSeverity INT,	
-		@ErrorState INT
+		@ErrorMessage NVARCHAR(4000);
 			   		
 	DECLARE				
 		@ParamID BIGINT,
@@ -54,6 +52,9 @@ BEGIN
 			MonitorParameterValue DECIMAL(28,6) NULL,
 			Active BIT NOT NULL
 		)
+
+	DECLARE 
+		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.MonitorSet';--
 				  					
 	-- Список всех параметров монитора(включая пакеты)
 	DECLARE @pm TABLE (
@@ -317,10 +318,8 @@ BEGIN
 			COMMIT			
 	END TRY
 	BEGIN CATCH
-		IF @@TRANCOUNT != 0 
-			ROLLBACK;
-		SELECT @ErrorMessage = ERROR_MESSAGE(),@ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE();				
-		RAISERROR(@ErrorMessage,@ErrorSeverity,@ErrorState);
+		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
+		RETURN 1;	
 	END CATCH	  
 END
 GO
