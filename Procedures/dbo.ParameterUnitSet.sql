@@ -66,10 +66,16 @@ BEGIN
 					RAISERROR('“акой ед. измерени€ нет!',16,7);				
 			END;	
 			
-			IF @Mode IN (0,1)
+			IF @Mode = 0
 			BEGIN									
 				IF EXISTS(SELECT 1 FROM dbo.Units (updlock) WHERE UnitShortName = @UnitShortName AND LoginID = @LoginID)
-					RAISERROR('”же есть ед. измерени€ с таким кратким наименованием!',16,8);													
+					RAISERROR('”же есть ед. измерени€ с таким кратким наименованием!',16,8);
+			END;
+					
+			IF @Mode = 1
+			BEGIN														
+				IF EXISTS(SELECT 1 FROM dbo.Units WHERE UnitID != @UnitID and UnitShortName = @UnitShortName AND LoginID = @LoginID)
+					RAISERROR('”же есть ед. измерени€ с таким кратким названием!',16,9);																		
 			END;	
 			
 			IF @Mode = 0 -- ins 
@@ -91,34 +97,35 @@ BEGIN
 				SET @UnitID = SCOPE_IDENTITY();  
 			END
 			ELSE
-			IF @Mode = 1
-			BEGIN
-				UPDATE dbo.Units
-				SET 					
-					UnitShortName = @UnitShortName,
-					UnitName = @UnitName,
-					UnitGroupID = @UnitGroupID
-				WHERE
-					UnitID	= @UnitID
-					AND LoginID = @LoginID 
-			END
-			ELSE					 
-			IF @Mode = 2
-			BEGIN
-				IF EXISTS(
-					SELECT 1 FROM dbo.Params AS p (updlock)
-					WHERE p.ParamUnitID = @UnitID AND p.LoginID = @LoginID 
-				)
+				IF @Mode = 1
 				BEGIN
-					RAISERROR('≈д.измерени€ используетс€ в параметрах!',16,9);
-				END	
+					UPDATE dbo.Units
+					SET 					
+						UnitShortName = @UnitShortName,
+						UnitName = @UnitName,
+						UnitGroupID = @UnitGroupID
+					WHERE
+						UnitID	= @UnitID
+						AND LoginID = @LoginID 
+				END
+				ELSE					 
+					IF @Mode = 2
+					BEGIN
+						IF EXISTS(
+							SELECT 1 FROM dbo.Params AS p (updlock)
+							WHERE p.ParamUnitID = @UnitID AND p.LoginID = @LoginID 
+						)
+						BEGIN
+							RAISERROR('≈д.измерени€ используетс€ в параметрах!',16,10);
+						END	
 				
-				DELETE FROM dbo.Units	-- AFTER trigger
-				WHERE 	
-					 UnitID = @UnitID
-					 AND LoginID = @LoginID
-			END
-			COMMIT			
+						DELETE FROM dbo.Units	-- AFTER trigger
+						WHERE 	
+								UnitID = @UnitID
+								AND LoginID = @LoginID
+					END
+			
+		COMMIT			
 	END TRY
 	BEGIN CATCH
 		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
