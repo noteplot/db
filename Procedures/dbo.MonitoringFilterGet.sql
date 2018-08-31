@@ -36,6 +36,7 @@ BEGIN
 			m.MonitorID = @MonitorID
 	END TRY
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0 ROLLBACK 	
 		IF @LoginID IS NULL
 			SELECT @LoginID = LoginID FROM dbo.Monitors AS m (nolock) 
 			WHERE m.MonitorID = @MonitorID

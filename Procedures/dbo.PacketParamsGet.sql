@@ -31,7 +31,8 @@ BEGIN
 		WHERE pp.PacketID = @PacketID
 		ORDER BY pp.PacketParamPosition
 	END TRY	
-	BEGIN CATCH
+	BEGIN CATCH		
+		IF @@TRANCOUNT > 0 ROLLBACK 
 		DECLARE @LoginID BIGINT
 		SELECT @LoginID = p.LoginID FROM dbo.Packets AS p (nolock) 
 		WHERE p.PacketID = @PacketID

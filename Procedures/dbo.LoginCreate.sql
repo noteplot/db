@@ -75,6 +75,7 @@ BEGIN
 			COMMIT
 	END TRY
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0 ROLLBACK 
 		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @rollback= 1			
 		RETURN 1
 	END CATCH

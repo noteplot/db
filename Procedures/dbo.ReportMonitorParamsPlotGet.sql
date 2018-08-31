@@ -115,6 +115,7 @@ BEGIN
 			m.[MonitoringDate] >=@DB and m.[MonitoringDate] < @DE
 	END TRY
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0 ROLLBACK 
 		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
 		RETURN 1;	
 	END CATCH	  						  

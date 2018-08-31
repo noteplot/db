@@ -33,6 +33,7 @@ BEGIN
 		WHERE [IsNumeric] = IsNull(@IsNumeric,[IsNumeric])
 	END TRY
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0 ROLLBACK 
 		EXEC [dbo].[ErrorLogSet] @LoginID = NULL, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
 		RETURN 1;	
 	END CATCH	  	

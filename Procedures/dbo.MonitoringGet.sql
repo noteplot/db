@@ -34,6 +34,7 @@ BEGIN
 			mg.MonitoringID = @MonitoringID
 	END TRY
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0 ROLLBACK 
 		DECLARE @LoginID BIGINT
 		SELECT @LoginID = m.LoginID FROM dbo.Monitorings AS mg (nolock)
 		JOIN dbo.Monitors AS m (nolock) ON m.MonitorID = mg.MonitorID 

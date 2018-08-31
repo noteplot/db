@@ -48,10 +48,10 @@ BEGIN
 		ORDER BY mp.MonitorParamPosition
 	END TRY
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0 ROLLBACK 		
 		DECLARE @LoginID BIGINT
 		SELECT @LoginID = m.LoginID FROM dbo.Monitors AS m (nolock)
 		WHERE m.MonitorID = @MonitorID
-			
 		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
 		RETURN 1;	
 	END CATCH				 			 		 	

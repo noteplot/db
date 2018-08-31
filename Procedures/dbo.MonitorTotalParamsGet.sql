@@ -68,6 +68,7 @@ BEGIN
 		ORDER BY par.MonitorParamPosition,par.PacketParamPosition
 	END TRY	
 	BEGIN CATCH
+		IF @@TRANCOUNT > 0 ROLLBACK 	
 		DECLARE @LoginID BIGINT
 		SELECT @LoginID = m.LoginID FROM dbo.Monitors AS m (nolock) 
 		WHERE m.MonitorID = @MonitorID

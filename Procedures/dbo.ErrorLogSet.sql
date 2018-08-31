@@ -57,16 +57,18 @@ BEGIN
 				@ErrorProcedure, 
 				@ErrorMessage
 		)		
-		SET @ErrorState = 250 -- state = 254 == reraise
+		SET @ErrorState = 250		 -- state = 254 == reraise
+		
 	END TRY
 	BEGIN CATCH
 		SET @ErrorMessage = 'Проблема при логировании ошибки: '+ @ErrorMessage + ' ('+ERROR_MESSAGE()+')';
 		SELECT @ErrorState = 255, @ErrorSeverity = 16 
-		RAISERROR(@ErrorMessage,16,@ErrorState);
+		--RAISERROR(@ErrorMessage,16,@ErrorState);
 	END CATCH
 	--END;
 	IF (@Reraise = 1)
 		RAISERROR(@ErrorMessage, @ErrorSeverity,@ErrorState); 
+
 	
 END
 GO

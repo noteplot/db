@@ -28,6 +28,7 @@ BEGIN
 		FROM dbo.MathOperations AS mo
 	END TRY
 	BEGIN CATCH		
+		IF @@TRANCOUNT > 0 ROLLBACK 
 		EXEC [dbo].[ErrorLogSet] @LoginID = null, @ProcName = @ProcName, @Reraise = 1, @rollback= 1;
 		RETURN 1;	
 	END CATCH	
