@@ -15,6 +15,16 @@ go
 
 ALTER TABLE [dbo].[UnitGroups] CHECK CONSTRAINT [FK_UnitGroups_Logins]
 GO
+
+CREATE UNIQUE NONCLUSTERED INDEX [IU_UnitGroups_ShortName_Login] ON [dbo].[UnitGroups]
+(
+	[UnitGroupShortName],
+	[LoginID]
+)
+GO
+
+--=========================================================================================================
+return
 /*
 НУЛЕВОЙ ЛОГИН!!!
 

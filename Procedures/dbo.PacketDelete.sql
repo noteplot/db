@@ -35,7 +35,7 @@ BEGIN
 		BEGIN TRAN
 			select top 1 
 				@MonitorShortName = m.MonitorShortName 
-			FROM dbo.MonitorParams AS mp (holdlock)
+			FROM dbo.MonitorParams AS mp (REPEATABLEREAD)
 			JOIN dbo.Monitors AS m ON m.MonitorID = mp.MonitorID
 			WHERE mp.ParameterID = @PacketID			
 			IF @@ROWCOUNT != 0 

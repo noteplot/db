@@ -145,9 +145,9 @@ BEGIN
 				SELECT 
 					@MonitorShortName = m.MonitorShortName  
 				FROM dbo.MonitoringParams AS mps (updlock)
-				JOIN dbo.Monitorings AS ms (holdlock) ON ms.MonitoringID = mps.MonitoringID
-				JOIN dbo.Monitors AS m (holdlock) ON m.MonitorID = ms.MonitorID
-				JOIN dbo.MonitorParams AS mp (holdlock) ON mp.MonitorID = m.MonitorID				 
+				JOIN dbo.Monitorings AS ms (repeatableread) ON ms.MonitoringID = mps.MonitoringID
+				JOIN dbo.Monitors AS m (repeatableread) ON m.MonitorID = ms.MonitorID
+				JOIN dbo.MonitorParams AS mp (repeatableread) ON mp.MonitorID = m.MonitorID				 
 				WHERE mps.ParamID = @ParameterID
 				IF @MonitorShortName IS NOT NULL
 				BEGIN

@@ -119,7 +119,7 @@ BEGIN
 					c.value('MonitorParameterActive[1]','bit') AS Active
 				from 
 					@MonitorParameters.nodes('/MonitorParameters/MonitorParameter') t(c)
-				LEFT JOIN dbo.Params AS p (holdlock) ON p.ParamID = c.value('ParameterID[1]','bigint')
+				LEFT JOIN dbo.Params AS p (REPEATABLEREAD) ON p.ParamID = c.value('ParameterID[1]','bigint')
 				AND p.ParamTypeID = 2 -- параметр монитора 											
 					
 				IF @@ROWCOUNT = 0	
@@ -147,9 +147,9 @@ BEGIN
 						pm.ParamTypeID,
 						PacketName = pt.PacketShortName
 					FROM @par AS p
-					JOIN dbo.Packets AS pt (holdlock) ON pt.PacketID = p.ParameterID
-					JOIN dbo.PacketParams AS pp (holdlock) ON pp.PacketID = pt.PacketID				
-					JOIN dbo.Params AS pm (holdlock) ON pm.ParamID = pp.ParamID
+					JOIN dbo.Packets AS pt (REPEATABLEREAD) ON pt.PacketID = p.ParameterID
+					JOIN dbo.PacketParams AS pp (REPEATABLEREAD) ON pp.PacketID = pt.PacketID				
+					JOIN dbo.Params AS pm (REPEATABLEREAD) ON pm.ParamID = pp.ParamID
 				) AS p
 
 				select top 1 @ParamID = ParamID 
@@ -188,9 +188,9 @@ BEGIN
 					pr.SecondaryParamID AS ParamID,
 					pm2.ParamShortName  AS ParamName 
 				FROM @pm AS pm
-				JOIN dbo.Params AS p (holdlock) ON p.ParamID = pm.ParamID AND p.ParamTypeID IN (1,2)
-				JOIN dbo.ParamRelations AS pr (holdlock) ON pr.PrimaryParamID = pm.ParamID
-				JOIN dbo.Params AS pm2 (holdlock) ON pm2.ParamID = pr.SecondaryParamID				  					
+				JOIN dbo.Params AS p (REPEATABLEREAD) ON p.ParamID = pm.ParamID AND p.ParamTypeID IN (1,2)
+				JOIN dbo.ParamRelations AS pr (REPEATABLEREAD) ON pr.PrimaryParamID = pm.ParamID
+				JOIN dbo.Params AS pm2 (REPEATABLEREAD) ON pm2.ParamID = pr.SecondaryParamID				  					
 				
 				SELECT TOP 1 
 					@CalcParamName = pcl.CalcParamName,
@@ -209,13 +209,13 @@ BEGIN
 				IF @Mode = 1
 				BEGIN
 					IF EXISTS(
-						SELECT 1 FROM dbo.MonitoringParams AS mps (holdlock) 
-						JOIN dbo.Monitorings AS m (holdlock) ON m.MonitoringID = mps.MonitoringID AND m.MonitorID = @MonitorID
+						SELECT 1 FROM dbo.MonitoringParams AS mps (REPEATABLEREAD) 
+						JOIN dbo.Monitorings AS m (REPEATABLEREAD) ON m.MonitoringID = mps.MonitoringID AND m.MonitorID = @MonitorID
 						--JOIN dbo.MonitorParams AS mp ON mp.MonitorParamID = mps.MonitorParamID AND mp.MonitorID = m.MonitorID
 						JOIN (
 							SELECT mp.ParameterID 
-							FROM dbo.MonitorParams AS mp (holdlock)
-							JOIN dbo.Monitors AS m (holdlock) ON m.MonitorID = mp.MonitorID AND m.MonitorID = @MonitorID
+							FROM dbo.MonitorParams AS mp (REPEATABLEREAD)
+							JOIN dbo.Monitors AS m (REPEATABLEREAD) ON m.MonitorID = mp.MonitorID AND m.MonitorID = @MonitorID
 							EXCEPT
 							SELECT psm.ParameterID
 							FROM @par AS psm							

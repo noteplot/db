@@ -55,7 +55,7 @@ BEGIN
 			BEGIN
 				IF @UnitGroupID IS NULL
 					RAISERROR('Группа не установлена!',16,3);
-				IF EXISTS(SELECT 1 FROM dbo.UnitGroups (holdlock) WHERE UnitGroupID != @UnitGroupID and UnitGroupShortName = @UnitGroupShortName AND LoginID = @LoginID)
+				IF EXISTS(SELECT 1 FROM dbo.UnitGroups (REPEATABLEREAD) WHERE UnitGroupID != @UnitGroupID and UnitGroupShortName = @UnitGroupShortName AND LoginID = @LoginID)
 					RAISERROR('Уже есть группа с таким кратким наименованием!',16,4);				
 
 				UPDATE dbo.UnitGroups
@@ -70,8 +70,8 @@ BEGIN
 			IF @Mode = 2
 			BEGIN
 				IF EXISTS(
-					SELECT 1 FROM dbo.Units AS u (holdlock)
-					WHERE u.UnitGroupID = @UnitGroupID AND u.LoginID = @LoginID 
+					SELECT 1 FROM dbo.Units AS u (REPEATABLEREAD)
+					WHERE u.UnitGroupID = @UnitGroupID
 				)
 				BEGIN
 					RAISERROR('Группа используется в ед.измерения!',16,5);
@@ -80,7 +80,7 @@ BEGIN
 				DELETE FROM dbo.UnitGroups	-- AFTER trigger
 				WHERE 	
 					 UnitGroupID = @UnitGroupID
-					 AND LoginID = @LoginID
+					 					 
 			END
 			COMMIT			
 	END TRY

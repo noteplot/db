@@ -258,7 +258,7 @@ BEGIN
 						p.ParamTypeID,
 						mp.ParamValue 
 					FROM dbo.MonitoringParams (updlock) AS mp
-					JOIN dbo.Params AS p (holdlock) ON p.ParamID = mp.ParamID					
+					JOIN dbo.Params AS p (REPEATABLEREAD) ON p.ParamID = mp.ParamID					
 					WHERE mp.MonitoringID = @MonitoringID
 			END					
 								
@@ -287,7 +287,7 @@ BEGIN
 							SUM(p2.ParamTypeID) OVER(PARTITION BY pr.[PrimaryParamID]) AS CalcType,
 							pr.MathOperationID,
 							p.Scale
-						FROM dbo.ParamRelations AS pr (holdlock)
+						FROM dbo.ParamRelations AS pr (REPEATABLEREAD)
 						JOIN @parc AS p ON p.ParamID = pr.PrimaryParamID
 						JOIN @pars AS p2 ON p2.ParamID = pr.SecondaryParamID																		
 					) AS p	
@@ -403,10 +403,10 @@ BEGIN
 				pr.MathOperationID,
 				pvt.Scale	
 			FROM dbo.MonitorParams AS mp
-			JOIN dbo.Params AS p (holdlock) ON p.ParamID = mp.ParameterID AND p.ParamTypeID = 2
-			JOIN dbo.ParamRelations AS pr (holdlock) ON pr.PrimaryParamID = mp.ParameterID
+			JOIN dbo.Params AS p (REPEATABLEREAD) ON p.ParamID = mp.ParameterID AND p.ParamTypeID = 2
+			JOIN dbo.ParamRelations AS pr (REPEATABLEREAD) ON pr.PrimaryParamID = mp.ParameterID
 			JOIN @pars AS ps ON ps.ParamID = pr.SecondaryParamID
-			JOIN dbo.ParamValueTypes AS pvt (holdlock) ON pvt.ParamValueTypeID = p.ParamValueTypeID 
+			JOIN dbo.ParamValueTypes AS pvt (REPEATABLEREAD) ON pvt.ParamValueTypeID = p.ParamValueTypeID 
 			WHERE mp.MonitorID = @MonitorID AND mp.[Active] = 1 
 			
 			SET @rt = @@ROWCOUNT

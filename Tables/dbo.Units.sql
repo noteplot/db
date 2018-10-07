@@ -21,6 +21,12 @@ GO
 ALTER TABLE [dbo].[Units] CHECK CONSTRAINT FK_Units_UnitGroups
 GO
 
+CREATE NONCLUSTERED INDEX [IX_Units_UnitGroupID_Login] ON [dbo].[Units]
+(
+	[UnitGroupID]
+)
+GO
+
 
 /*
 НУЛЕВОЙ UNITID - для строковых параметров, которые НЕ редактируются
