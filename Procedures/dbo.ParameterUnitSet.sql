@@ -35,13 +35,13 @@ BEGIN
 		if @LoginID IS NULL
 			RAISERROR('Не определена учетная запись!',16,2);
 				
-		IF @Mode NOT IN (1,2)
+		IF @Mode IN (1,2)
 		BEGIN
 			IF @UnitID IS NULL
 				RAISERROR('Ед. измерения не указана!',16,3);
 		END				
 		
-		IF @Mode NOT IN (0,1)
+		IF @Mode IN (0,1)
 		BEGIN
 			IF @UnitShortName is not null and RTRIM(LTRIM(@UnitShortName)) = ''
 				set @UnitShortName = NULL
