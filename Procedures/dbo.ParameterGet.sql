@@ -34,6 +34,8 @@ BEGIN
 			pt.ParamTypeName				AS ParameterTypeName,
 			p.ParamValueTypeID				AS ParameterValueTypeID,
 			pvt.ParamValueTypeShortName		AS ParameterValueTypeShortName,
+			pvt.Scale						AS ParameterScale,
+			pvt.[Precision]					AS ParameterPrecision,			
 			p.ParamValueMAX					AS ParameterValueMAX,
 			p.ParamValueMIN					AS ParameterValueMIN,
 			ps.[Active]						AS Active,
