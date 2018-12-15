@@ -1,5 +1,5 @@
 set quoted_identifier, ansi_nulls on
-GO
+go
 
 -- =============================================
 -- Author:		[ab]
@@ -8,86 +8,104 @@ GO
 -- @Mode:		0 - создание 1- изменение 2 - удаление       
 -- =============================================
 
-IF OBJECT_ID('[dbo].[UnitGroupSet]', 'P') is null
- EXEC('create procedure [dbo].[UnitGroupSet] as begin return -1 end')
-GO
+if object_id('[dbo].[UnitGroupSet]', 'P') is null
+    exec (
+             'create procedure [dbo].[UnitGroupSet] as begin return -1 end'
+         )
+go
 
-ALTER PROCEDURE dbo.UnitGroupSet 
-	@UnitGroupID			BIGINT OUT,
-	@UnitGroupShortName		NVARCHAR(24),
-	@UnitGroupName			NVARCHAR(48),
-	@LoginID				BIGINT,
-	@Mode					TINYINT	
-AS
-BEGIN
-	SET NOCOUNT ON;
-	DECLARE 
-		@ProcName NVARCHAR(128) = OBJECT_NAME(@@PROCID);--N'dbo.UnitGroupSet';--
+alter procedure dbo.UnitGroupSet
+	@UnitGroupID bigint out,
+	@UnitGroupShortName nvarchar(24),
+	@UnitGroupName nvarchar(48),
+	@LoginID bigint,
+	@Mode tinyint
+as
+begin
+	set nocount on;
+	declare @ProcName nvarchar(128) = object_name(@@PROCID);--N'dbo.UnitGroupSet';--
 	
-	BEGIN TRY
-		IF @Mode NOT IN (0,1,2)
-		BEGIN
-			RAISERROR('Некорректное значение параметра @Mode',16,1);	
-		END
-		BEGIN TRAN
-			
-			IF @Mode = 0 -- ins 
-			BEGIN
-				IF EXISTS(SELECT 1 FROM dbo.UnitGroups (updlock) WHERE UnitGroupShortName = @UnitGroupShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть параметр с таким кратким названием!',16,2);				
-												
-				INSERT INTO dbo.UnitGroups
-				(			
-					[UnitGroupShortName],
-					[UnitGroupName],
-					[LoginID]
-				)
-				VALUES
-				(
-					@UnitGroupShortName,
-					@UnitGroupName,
-					@LoginID
-				)
-				SET @UnitGroupID = SCOPE_IDENTITY();  
-			END
-			ELSE
-			IF @Mode = 1
-			BEGIN
-				IF @UnitGroupID IS NULL
-					RAISERROR('Группа не установлена!',16,3);
-				IF EXISTS(SELECT 1 FROM dbo.UnitGroups (REPEATABLEREAD) WHERE UnitGroupID != @UnitGroupID and UnitGroupShortName = @UnitGroupShortName AND LoginID = @LoginID)
-					RAISERROR('Уже есть группа с таким кратким наименованием!',16,4);				
+	begin try
+		if @Mode not in (0, 1, 2)
+		begin
+		    raiserror('Некорректное значение параметра @Mode', 16, 1);
+		end
+		
+		begin tran
+		
+		if @Mode = 0 -- ins
+		begin
+		    if exists(
+		           select 1
+		           from   dbo.UnitGroups (updlock)
+		           where  UnitGroupShortName = @UnitGroupShortName
+		                  and LoginID = @LoginID
+		       )
+		        raiserror('Уже есть группа с таким кратким названием!', 16, 2);				
+		    
+		    insert into dbo.UnitGroups
+		      (
+		        [UnitGroupShortName],
+		        [UnitGroupName],
+		        [LoginID]
+		      )
+		    values
+		      (
+		        @UnitGroupShortName,
+		        @UnitGroupName,
+		        @LoginID
+		      )
+		    set @UnitGroupID = scope_identity();
+		end
+		else
+		if @Mode = 1
+		begin
+		    if @UnitGroupID is null
+		        raiserror('Группа не установлена!', 16, 3);
+		    if exists(
+		           select 1
+		           from   dbo.UnitGroups (repeatableread)
+		           where  UnitGroupID != @UnitGroupID
+		                  and UnitGroupShortName = @UnitGroupShortName
+		                  and LoginID = @LoginID
+		       )
+		        raiserror('Уже есть группа с таким кратким наименованием!', 16, 4);				
+		    
+		    update dbo.UnitGroups
+		    set    UnitGroupShortName     = @UnitGroupShortName,
+		           UnitGroupName          = @UnitGroupName
+		    where  UnitGroupID            = @UnitGroupID
+		           and LoginID            = @LoginID
+		end
+		else					 
+		if @Mode = 2
+		begin
+		    if exists(
+		           select 1
+		           from   dbo.Units as u(holdlock)
+		           where  u.UnitGroupID = @UnitGroupID
+		       )
+		    begin
+		        raiserror('Группа используется в ед.измерения!', 16, 5);
+		    end	
+		    
+		    delete 
+		    from   dbo.UnitGroups -- AFTER trigger
+		    where  UnitGroupID = @UnitGroupID
+		end
+		
+		commit
+	end try
+	begin catch
+		if @@TRANCOUNT > 0
+		    rollback
+		
+		exec [dbo].[ErrorLogSet] @LoginID = @LoginID,
+		     @ProcName = @ProcName,
+		     @Reraise = 1,
+		     @rollback = 1;
+		return 1;
+	end catch
+end
+go
 
-				UPDATE dbo.UnitGroups
-				SET 					
-					UnitGroupShortName = @UnitGroupShortName,
-					UnitGroupName = @UnitGroupName
-				WHERE
-					UnitGroupID	= @UnitGroupID
-					AND LoginID = @LoginID 
-			END
-			ELSE					 
-			IF @Mode = 2
-			BEGIN
-				IF EXISTS(
-					SELECT 1 FROM dbo.Units AS u (REPEATABLEREAD)
-					WHERE u.UnitGroupID = @UnitGroupID
-				)
-				BEGIN
-					RAISERROR('Группа используется в ед.измерения!',16,5);
-				END	
-				
-				DELETE FROM dbo.UnitGroups	-- AFTER trigger
-				WHERE 	
-					 UnitGroupID = @UnitGroupID
-					 					 
-			END
-			COMMIT			
-	END TRY
-	BEGIN CATCH
-		IF @@TRANCOUNT > 0 ROLLBACK 
-		EXEC [dbo].[ErrorLogSet] @LoginID = @LoginID, @ProcName = @ProcName, @Reraise = 1, @rollback = 1;
-		RETURN 1;	
-	END CATCH	  
-END
-GO
